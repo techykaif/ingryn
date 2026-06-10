@@ -25,37 +25,19 @@ export default function SignUpScreen() {
     return
   }
   setLoading(true)
-
-  console.log('=== SIGNUP DEBUG ===')
-  console.log('Email:', email)
-  console.log('Password length:', password.length)
-  console.log('Supabase URL:', process.env.EXPO_PUBLIC_SUPABASE_URL)
-  console.log('Anon key exists:', !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY)
-
   try {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
       options: { data: { full_name: fullName.trim() } },
     })
-
-    console.log('=== SIGNUP RESULT ===')
-    console.log('Error:', JSON.stringify(error))
-    console.log('User:', JSON.stringify(data?.user))
-    console.log('Session:', JSON.stringify(data?.session))
-
     if (error) {
-      Alert.alert('Sign up failed', `${error.message}\n\nStatus: ${error.status}`)
+      Alert.alert('Sign up failed', error.message)
     } else if (data?.user) {
-      Alert.alert('Success', `User created: ${data.user.email}`)
       router.replace('/(tabs)/home')
-    } else {
-      Alert.alert('Unknown state', JSON.stringify(data))
     }
   } catch (e: any) {
-    console.log('=== CAUGHT EXCEPTION ===')
-    console.log(e)
-    Alert.alert('Exception', e.message)
+    Alert.alert('Error', e.message)
   } finally {
     setLoading(false)
   }

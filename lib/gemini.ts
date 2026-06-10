@@ -16,7 +16,13 @@ export async function analyzeIngredients(ingredientText: string): Promise<Ingred
     throw new Error('Gemini API key is missing. Check EXPO_PUBLIC_GEMINI_API_KEY in .env')
   }
 
-  const prompt = `You are an ingredient safety expert and food scientist. Analyze these product ingredients and return a JSON array. Return ONLY valid JSON — no preamble, no markdown, no backticks. Your response must start with [ and end with ].
+  const cleanedInput = ingredientText
+    .replace(/\n/g, ', ')
+    .replace(/[^\w\s,.()\-\/]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const prompt = `You are an ingredient safety expert and food scientist. Analyze these product ingredients and return a JSON array. Return ONLY valid JSON — no preamble, no markdown, no backticks, no explanations. Your response must start with [ and end with ].
 
 For each ingredient provide:
 - name: string
@@ -28,55 +34,93 @@ For each ingredient provide:
 - country_status: object with keys: US, EU, UK, India, Australia, Canada, Japan, China
   Values must be one of: "permitted", "permitted_with_limits", "banned", "under_review", "no_data"
 
-Ingredients to analyze: ${ingredientText}`
+Ingredients to analyze: ${cleanedInput}`
 
-  let response: Response
-  try {
-    response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-      }),
-    })
-  } catch (fetchError: any) {
-    throw new Error(`Network error: ${fetchError.message}`)
-  }
-
-  const rawText = await response.text()
-
-  if (!response.ok) {
-    let errorMessage = `Gemini API error ${response.status}`
+  const makeRequest = async (retryCount = 0): Promise<IngredientAnalysis[]> => {
+    let response: Response
     try {
-      const errorData = JSON.parse(rawText)
-      errorMessage = errorData?.error?.message || errorMessage
-    } catch {}
-    throw new Error(errorMessage)
+      response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 8192,
+          },
+        }),
+      })
+    } catch (fetchError: any) {
+      throw new Error(`Network error: ${fetchError.message}`)
+    }
+
+    if (response.status === 429 && retryCount < 3) {
+      const delay = (retryCount + 1) * 8000
+      await new Promise(resolve => setTimeout(resolve, delay))
+      return makeRequest(retryCount + 1)
+    }
+
+    const rawText = await response.text()
+
+    if (!response.ok) {
+      let errorMessage = `Gemini API error ${response.status}`
+      try {
+        const errorData = JSON.parse(rawText)
+        errorMessage = errorData?.error?.message || errorMessage
+      } catch {}
+      throw new Error(errorMessage)
+    }
+
+    let data: any
+    try {
+      data = JSON.parse(rawText)
+    } catch {
+      throw new Error('Failed to parse Gemini response')
+    }
+
+    const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!textContent) throw new Error('No response from Gemini')
+
+    // TEMP DEBUG
+    console.log('RAW GEMINI TEXT:', textContent.substring(0, 500))
+    console.log('FIRST CHAR CODE:', textContent.charCodeAt(0))
+    console.log('STARTS WITH [:', textContent.trimStart().startsWith('['))
+    console.log('FULL LENGTH:', textContent.length)
+
+    let clean = textContent
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/gi, '')
+      .replace(/^\s*[\r\n]/gm, '')
+      .trim()
+
+    const arrayMatch = clean.match(/\[[\s\S]*\]/)
+    if (arrayMatch) {
+      clean = arrayMatch[0]
+    }
+
+    let parsed: IngredientAnalysis[]
+    try {
+      parsed = JSON.parse(clean)
+    } catch {
+      const start = textContent.indexOf('[')
+      const end = textContent.lastIndexOf(']')
+      if (start !== -1 && end !== -1 && end > start) {
+        try {
+          parsed = JSON.parse(textContent.substring(start, end + 1))
+        } catch {
+          throw new Error('Failed to parse ingredient analysis from Gemini')
+        }
+      } else {
+        throw new Error('Failed to parse ingredient analysis from Gemini')
+      }
+    }
+
+    if (!Array.isArray(parsed)) {
+      throw new Error('Gemini returned unexpected format')
+    }
+
+    return parsed
   }
 
-  let data: any
-  try {
-    data = JSON.parse(rawText)
-  } catch {
-    throw new Error('Failed to parse Gemini response')
-  }
-
-  const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!textContent) throw new Error('No response from Gemini')
-
-  const clean = textContent.replace(/```json|```/g, '').trim()
-
-  let parsed: IngredientAnalysis[]
-  try {
-    parsed = JSON.parse(clean)
-  } catch {
-    throw new Error('Failed to parse ingredient analysis from Gemini')
-  }
-
-  if (!Array.isArray(parsed)) {
-    throw new Error('Gemini returned unexpected format')
-  }
-
-  return parsed
+  return makeRequest()
 }

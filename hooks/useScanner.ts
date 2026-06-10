@@ -20,6 +20,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
   const [step, setStep] = useState<ScanStep>('camera')
   const [flash, setFlash] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
   const [processingTip, setProcessingTip] = useState(0)
   const [manualText, setManualText] = useState('')
   const cameraRef = useRef<CameraView>(null)
@@ -40,10 +41,13 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     }
   }, [])
 
-  const activateCamera = useCallback(() => setCameraActive(true), [])
+  const activateCamera = useCallback(() => {
+    setCameraActive(true)
+  }, [])
 
   const deactivateCamera = useCallback(() => {
     setCameraActive(false)
+    setCameraReady(false)
     stopTipCycle()
   }, [stopTipCycle])
 
@@ -104,21 +108,40 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     }
   }, [stopTipCycle, processText])
 
+  // Uses native camera app via ImagePicker — avoids ERR_IMAGE_CAPTURE_FAILED
   const handleCapture = useCallback(async () => {
-    if (!cameraRef.current) return
-    setStep('processing')
-    startTipCycle()
-
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: false })
-      if (!photo?.uri) throw new Error('Failed to capture photo')
-      await recognizeFromUri(photo.uri)
+      const { status } = await ImagePicker.requestCameraPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Camera permission is required to scan ingredients.')
+        return
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: false,
+      })
+
+      if (result.canceled || !result.assets?.[0]) return
+
+      const uri = result.assets[0].uri
+      setStep('processing')
+      startTipCycle()
+      await recognizeFromUri(uri)
     } catch (e: any) {
       stopTipCycle()
       setStep('camera')
-      Alert.alert('Capture failed', e.message || 'Could not take photo.')
+      Alert.alert(
+        'Capture failed',
+        e.message || 'Could not take photo.',
+        [
+          { text: 'Try again', style: 'cancel' },
+          { text: 'Type manually', onPress: () => setStep('manual') },
+        ]
+      )
     }
-  }, [cameraRef, startTipCycle, stopTipCycle, recognizeFromUri])
+  }, [startTipCycle, stopTipCycle, recognizeFromUri])
 
   const handleGalleryPick = useCallback(async () => {
     try {
@@ -153,6 +176,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     step, setStep,
     flash, setFlash,
     cameraActive,
+    cameraReady, setCameraReady,
     processingTip,
     manualText, setManualText,
     cameraRef,
