@@ -6,14 +6,34 @@ export async function saveAnalysis(
   userId: string
 ): Promise<{ scanId: string; error?: string }> {
   try {
-    const analysis = await analyzeIngredients(text)
+    const ingredientNames = parseIngredientNames(text)
 
-    if (!analysis || analysis.length === 0) {
+    if (ingredientNames.length === 0) {
       throw new Error('No ingredients could be identified')
     }
 
-    const ingredientIds = await saveIngredients(analysis)
-    const safetyScore = calculateSafetyScore(analysis)
+    // Step 1: Check cache for all ingredients at once
+    const { cachedIds, unknownNames } = await checkCache(ingredientNames)
+
+    // Step 2: Only call Gemini for ingredients not in cache
+    let newIds: string[] = []
+    if (unknownNames.length > 0) {
+      const analysis = await analyzeIngredients(unknownNames.join(', '))
+      newIds = await saveIngredients(analysis)
+    }
+
+    // Step 3: Combine cached + new ingredient IDs
+    const ingredientIds = [...cachedIds, ...newIds]
+
+    if (ingredientIds.length === 0) {
+      throw new Error('No ingredients could be identified')
+    }
+
+    // Step 4: Calculate safety score from DB
+    const allIngredients = await fetchIngredientsByIds(ingredientIds)
+    const safetyScore = calculateSafetyScore(allIngredients)
+
+    // Step 5: Save scan
     const scanId = await saveScan({ userId, text, safetyScore, ingredientIds })
 
     return { scanId }
@@ -29,7 +49,11 @@ export async function saveAnalysis(
       raw.includes('overloaded')
     ) {
       message = 'Our AI is a bit busy right now. Please wait a few seconds and try again.'
-    } else if (raw.includes('Network') || raw.includes('fetch') || raw.includes('Failed to fetch')) {
+    } else if (
+      raw.includes('Network') ||
+      raw.includes('fetch') ||
+      raw.includes('Failed to fetch')
+    ) {
       message = 'No internet connection. Please check your network and try again.'
     } else if (raw.includes('No ingredients')) {
       message = 'No ingredients found. Try scanning again or type them manually.'
@@ -41,13 +65,56 @@ export async function saveAnalysis(
   }
 }
 
+// Split raw text into individual ingredient names
+function parseIngredientNames(text: string): string[] {
+  return text
+    .split(/,|;|\n/)
+    .map(s => s.trim().toLowerCase())
+    .filter(s => s.length > 1 && s.length < 100)
+}
+
+// Single Supabase query to check which ingredients are already cached
+async function checkCache(names: string[]): Promise<{
+  cachedIds: string[]
+  unknownNames: string[]
+}> {
+  const { data: existing } = await supabase
+    .from('ingredients')
+    .select('id, name')
+    .in('name', names)
+
+  const cachedIds: string[] = []
+  const cachedNames = new Set<string>()
+
+  for (const row of existing || []) {
+    cachedIds.push(row.id)
+    cachedNames.add(row.name)
+  }
+
+  const unknownNames = names.filter(n => !cachedNames.has(n))
+
+  return { cachedIds, unknownNames }
+}
+
+// Fetch ingredients by IDs to calculate safety score
+async function fetchIngredientsByIds(
+  ids: string[]
+): Promise<{ safety_level: string }[]> {
+  if (ids.length === 0) return []
+  const { data } = await supabase
+    .from('ingredients')
+    .select('safety_level')
+    .in('id', ids)
+  return (data || []) as { safety_level: string }[]
+}
+
+// Save new ingredients returned by Gemini
 async function saveIngredients(analysis: IngredientAnalysis[]): Promise<string[]> {
   const ingredientIds: string[] = []
 
   for (const ingredient of analysis) {
     const normalizedName = ingredient.name.toLowerCase().trim()
 
-    // Check cache first — avoid duplicate Supabase inserts
     const { data: existing } = await supabase
       .from('ingredients')
       .select('id')
@@ -73,10 +140,9 @@ async function saveIngredients(analysis: IngredientAnalysis[]): Promise<string[]
       .select('id')
       .single()
 
-    // Handle race condition — another request may have inserted same ingredient
+    // Handle race condition
     if (insertError) {
       if (insertError.code === '23505') {
-        // Unique constraint violation — fetch the existing one
         const { data: raceExisting } = await supabase
           .from('ingredients')
           .select('id')
@@ -122,11 +188,16 @@ async function saveScan({
   return scan.id
 }
 
-function calculateSafetyScore(analysis: IngredientAnalysis[]): number {
-  if (!analysis.length) return 50
-  const weights = { safe: 100, caution: 50, harmful: 0, unknown: 60 }
-  const total = analysis.reduce((sum, i) => {
-    return sum + (weights[i.safety_level as keyof typeof weights] ?? 60)
+function calculateSafetyScore(ingredients: { safety_level: string }[]): number {
+  if (!ingredients.length) return 50
+  const weights: Record<string, number> = {
+    safe: 100,
+    caution: 50,
+    harmful: 0,
+    unknown: 60,
+  }
+  const total = ingredients.reduce((sum, i) => {
+    return sum + (weights[i.safety_level] ?? 60)
   }, 0)
-  return Math.round(total / analysis.length)
+  return Math.round(total / ingredients.length)
 }

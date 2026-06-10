@@ -54,6 +54,7 @@ Ingredients to analyze: ${cleanedInput}`
       throw new Error(`Network error: ${fetchError.message}`)
     }
 
+    // Rate limit — auto retry with backoff
     if (response.status === 429 && retryCount < 3) {
       const delay = (retryCount + 1) * 8000
       await new Promise(resolve => setTimeout(resolve, delay))
@@ -81,18 +82,14 @@ Ingredients to analyze: ${cleanedInput}`
     const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text
     if (!textContent) throw new Error('No response from Gemini')
 
-    // TEMP DEBUG
-    console.log('RAW GEMINI TEXT:', textContent.substring(0, 500))
-    console.log('FIRST CHAR CODE:', textContent.charCodeAt(0))
-    console.log('STARTS WITH [:', textContent.trimStart().startsWith('['))
-    console.log('FULL LENGTH:', textContent.length)
-
+    // Aggressively clean markdown wrappers
     let clean = textContent
       .replace(/```json\s*/gi, '')
       .replace(/```\s*/gi, '')
       .replace(/^\s*[\r\n]/gm, '')
       .trim()
 
+    // Extract just the JSON array even if there's surrounding text
     const arrayMatch = clean.match(/\[[\s\S]*\]/)
     if (arrayMatch) {
       clean = arrayMatch[0]
@@ -102,6 +99,7 @@ Ingredients to analyze: ${cleanedInput}`
     try {
       parsed = JSON.parse(clean)
     } catch {
+      // Last resort — slice from first [ to last ]
       const start = textContent.indexOf('[')
       const end = textContent.lastIndexOf(']')
       if (start !== -1 && end !== -1 && end > start) {
