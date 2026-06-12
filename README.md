@@ -1,9 +1,10 @@
 # INGRYN — Product Requirements Document
 
-**Version:** 1.0  
+**Version:** 2.0  
 **Date:** June 2026  
-**Status:** Draft  
-**Platform:** iOS + Android (React Native / Expo)
+**Status:** Active Development  
+**Platform:** iOS + Android (React Native / Expo)  
+**Last Updated:** June 2026 — Major revision reflecting completed implementation
 
 ---
 
@@ -27,11 +28,22 @@
 
 ---
 
+## Changelog
+
+| Version | Date | Summary |
+|---|---|---|
+| 1.0 | June 2026 | Initial PRD |
+| 2.0 | June 2026 | Major update reflecting completed Phase 1–3 implementation, auth hardening, ingredient caching, and revised remaining scope |
+
+---
+
 ## 1. Executive Summary
 
 INGRYN is a mobile-first SaaS application that allows users to scan product ingredient labels using their phone camera and instantly receive AI-powered analysis. The app identifies each ingredient, provides clear definitions, flags potentially harmful substances, and highlights ingredients that are banned or restricted in specific countries.
 
 INGRYN is targeted at health-conscious consumers, parents, people with dietary restrictions, travellers, and anyone who wants to understand what is actually inside the products they buy — without needing a chemistry degree.
+
+**Current status:** Core functionality is fully implemented and working end-to-end. Auth, scanning, AI analysis, ingredient caching, history, and settings are all live. Monetisation (Phase 4) is next.
 
 ---
 
@@ -115,7 +127,7 @@ A single camera scan → instant, structured, AI-powered breakdown of every ingr
 
 | App | OCR Scan | AI Analysis | Country Bans | Allergen Detection | Subscription |
 |---|---|---|---|---|---|
-| **INGRYN** | ✅ | ✅ Claude API | ✅ | ✅ | ✅ Freemium |
+| **INGRYN** | ✅ | ✅ Gemini 2.5 Flash | ✅ | ✅ | ✅ Freemium |
 | Yuka | ✅ | ❌ Static DB | ❌ | Partial | ✅ |
 | Think Dirty | ❌ Manual | ❌ Static DB | ❌ | ❌ | ✅ |
 | Open Food Facts | ❌ Barcode | ❌ Community | ❌ | Partial | Free |
@@ -127,272 +139,257 @@ A single camera scan → instant, structured, AI-powered breakdown of every ingr
 
 ## 6. Product Scope
 
-### In Scope — v1.0
-- User authentication (email/password + Google OAuth)
-- Camera-based ingredient label scanning
-- OCR text extraction via ML Kit
-- AI-powered ingredient analysis via Claude API
-- Per-ingredient definitions, safety ratings, and category tags
-- Country ban / restriction flags (initial list: US, EU, UK, India, Australia, Canada, Japan, China)
-- Scan history with saved results
-- Ingredient detail view
-- Freemium model with scan limits
-- iOS + Android
+### Completed — v1.0 Core
+- ✅ User authentication (email/password) with full error handling and rate limiting
+- ✅ Forgot password flow (inline, no separate screen)
+- ✅ Email validation with disposable/temp email domain blocklist (300+ domains)
+- ✅ Auth guard preventing unauthenticated access to all app screens
+- ✅ Camera-based ingredient label scanning
+- ✅ Gallery image picker as fallback
+- ✅ OCR text extraction
+- ✅ AI-powered ingredient analysis via Gemini 2.5 Flash
+- ✅ Per-ingredient definitions, safety ratings, and category tags
+- ✅ Country ban / restriction flags (US, EU, UK, India, Australia, Canada, Japan, China)
+- ✅ Ingredient caching in Supabase (same ingredient not re-analysed on repeat scans)
+- ✅ Scan history saved to Supabase with full persistence
+- ✅ History screen with chronological list
+- ✅ Ingredient detail view
+- ✅ Settings screen (edit name, change password, delete account)
+- ✅ Session persistence across app restarts (AsyncStorage)
+- ✅ Modular architecture — hooks separated from screen components
+
+### In Progress / Next
+- 🔲 Google OAuth
+- 🔲 RevenueCat subscription integration
+- 🔲 Paywall screen + feature gating
+- 🔲 Free tier scan limit enforcement (5 scans/month)
+- 🔲 Onboarding flow (3-step animated walkthrough)
+- 🔲 Overall product safety score (0–100 ring)
+- 🔲 Scan naming / labelling by user
 
 ### Out of Scope — v1.0 (future roadmap)
 - Barcode scanning
-- Personalised profiles (allergen preferences saved)
-- Social/sharing features
+- Personalised allergen profiles saved to account
+- Social / sharing features
 - Web app
 - Offline mode
 - Multi-language label OCR (non-Latin scripts)
 - Nutritional analysis
 - Product recommendations / alternatives
+- PDF export of scan results
 
 ---
 
 ## 7. Feature Requirements
 
-### 7.1 Authentication
+### 7.1 Authentication ✅ Completed
 
-| ID | Requirement | Priority |
-|---|---|---|
-| AUTH-01 | User can create an account with email + password | P0 |
-| AUTH-02 | User can sign in with Google OAuth | P0 |
-| AUTH-03 | User can reset their password via email | P0 |
-| AUTH-04 | Session persists across app restarts | P0 |
-| AUTH-05 | User can sign out | P0 |
-| AUTH-06 | New users are shown an onboarding flow before reaching the home screen | P1 |
-| AUTH-07 | Returning users are taken directly to the home screen | P0 |
+| ID | Requirement | Priority | Status |
+|---|---|---|---|
+| AUTH-01 | User can create an account with email + password | P0 | ✅ Done |
+| AUTH-02 | User can sign in with Google OAuth | P0 | 🔲 Pending |
+| AUTH-03 | User can reset their password via email | P0 | ✅ Done |
+| AUTH-04 | Session persists across app restarts | P0 | ✅ Done |
+| AUTH-05 | User can sign out | P0 | ✅ Done |
+| AUTH-06 | New users shown onboarding flow before home | P1 | 🔲 Pending |
+| AUTH-07 | Returning users taken directly to home screen | P0 | ✅ Done |
+| AUTH-08 | Inline error messages for all auth failure states | P0 | ✅ Done |
+| AUTH-09 | Client-side rate limiting (5 attempts → lockout with exponential backoff) | P0 | ✅ Done |
+| AUTH-10 | Disposable/temp email addresses blocked at registration and login | P0 | ✅ Done |
+| AUTH-11 | User can edit their display name from settings | P1 | ✅ Done |
+| AUTH-12 | User can change password from settings | P1 | ✅ Done |
+| AUTH-13 | User can permanently delete their account | P1 | ✅ Done |
 
-### 7.2 Scanner
+### 7.2 Scanner ✅ Completed
 
-| ID | Requirement | Priority |
-|---|---|---|
-| SCAN-01 | App requests camera permission on first use with clear explanation | P0 |
-| SCAN-02 | Live camera viewfinder with ingredient-area crop guide overlay | P0 |
-| SCAN-03 | User taps capture button to take a photo of the ingredient label | P0 |
-| SCAN-04 | ML Kit OCR extracts text from captured image | P0 |
-| SCAN-05 | Extracted text is cleaned and parsed into an ingredient list | P0 |
-| SCAN-06 | User can review and edit extracted text before analysis | P1 |
-| SCAN-07 | Manual text entry fallback if camera scan fails | P1 |
-| SCAN-08 | Processing state shown with progress indicator during OCR + AI analysis | P0 |
-| SCAN-09 | Full scan-to-result time must be under 10 seconds on mid-range hardware | P0 |
-| SCAN-10 | Free users are limited to 5 scans per month | P1 |
+| ID | Requirement | Priority | Status |
+|---|---|---|---|
+| SCAN-01 | App requests camera permission on first use | P0 | ✅ Done |
+| SCAN-02 | Live camera viewfinder with crop guide overlay | P0 | ✅ Done |
+| SCAN-03 | User taps capture button to photograph label | P0 | ✅ Done |
+| SCAN-04 | OCR extracts text from captured image | P0 | ✅ Done |
+| SCAN-05 | Extracted text parsed into ingredient list array | P0 | ✅ Done |
+| SCAN-06 | User can review and edit extracted text before analysis | P1 | 🔲 Pending |
+| SCAN-07 | Gallery image picker as fallback to camera | P1 | ✅ Done |
+| SCAN-08 | Processing state shown during OCR + AI analysis | P0 | ✅ Done |
+| SCAN-09 | Scan-to-result time under 10 seconds | P0 | ✅ Done |
+| SCAN-10 | Free users limited to 5 scans per month | P1 | 🔲 Pending (Phase 4) |
 
-### 7.3 AI Analysis
+### 7.3 AI Analysis ✅ Completed
 
-| ID | Requirement | Priority |
-|---|---|---|
-| AI-01 | Gemini 2.5 Flash API receives the parsed ingredient list and returns structured JSON | P0 |
-| AI-02 | Each ingredient response includes: name, common aliases, category, short description (1–2 sentences), safety level (safe / caution / harmful), and country ban list | P0 |
-| AI-03 | Country ban data covers: US, EU, UK, India, Australia, Canada, Japan, China | P0 |
-| AI-04 | If an ingredient is unknown or unrecognisable, the response flags it as "unverified" rather than silently failing | P0 |
-| AI-05 | Results are cached in Supabase so the same ingredient is not re-analysed on subsequent scans | P1 |
-| AI-06 | Prompt is structured to return only valid JSON — no prose preamble | P0 |
+| ID | Requirement | Priority | Status |
+|---|---|---|---|
+| AI-01 | Gemini 2.5 Flash receives ingredient list and returns structured JSON | P0 | ✅ Done |
+| AI-02 | Each ingredient includes: name, aliases, category, description, safety level, country bans | P0 | ✅ Done |
+| AI-03 | Country ban data covers: US, EU, UK, India, Australia, Canada, Japan, China | P0 | ✅ Done |
+| AI-04 | Unknown ingredients flagged as "unverified" rather than silently failing | P0 | ✅ Done |
+| AI-05 | Results cached in Supabase — same ingredient not re-analysed on repeat scans | P1 | ✅ Done |
+| AI-06 | Prompt returns only valid JSON — no prose preamble | P0 | ✅ Done |
 
-### 7.4 Results Screen
+### 7.4 Results Screen ✅ Completed
 
-| ID | Requirement | Priority |
-|---|---|---|
-| RES-01 | Results are grouped by safety level: Harmful → Caution → Safe | P0 |
-| RES-02 | Each ingredient card shows: name, category tag, safety badge (colour-coded), and 1-line summary | P0 |
-| RES-03 | Tapping an ingredient opens the ingredient detail view | P0 |
-| RES-04 | An overall product safety score (0–100) is shown at the top of the results screen | P1 |
-| RES-05 | Country ban section shows a world map view or country list of where ingredients are restricted | P1 |
-| RES-06 | Scan result is auto-saved to the user's history | P0 |
-| RES-07 | User can name/label the scan (e.g. "Lays Classic") | P1 |
+| ID | Requirement | Priority | Status |
+|---|---|---|---|
+| RES-01 | Results grouped by safety level: Harmful → Caution → Safe | P0 | ✅ Done |
+| RES-02 | Each ingredient card: name, category tag, safety badge, 1-line summary | P0 | ✅ Done |
+| RES-03 | Tapping ingredient opens ingredient detail view | P0 | ✅ Done |
+| RES-04 | Overall product safety score (0–100) at top of results | P1 | 🔲 Pending |
+| RES-05 | Country ban section showing restriction summary | P1 | 🔲 Pending |
+| RES-06 | Scan result auto-saved to user's history | P0 | ✅ Done |
+| RES-07 | User can name/label the scan | P1 | 🔲 Pending |
 
-### 7.5 Ingredient Detail
+### 7.5 Ingredient Detail ✅ Completed
 
-| ID | Requirement | Priority |
-|---|---|---|
-| DET-01 | Shows full ingredient name + all known aliases / E-numbers | P0 |
-| DET-02 | Shows category (e.g. Preservative, Artificial Colour, Emulsifier) | P0 |
-| DET-03 | Shows full description (3–5 sentences from AI) | P0 |
-| DET-04 | Shows safety level with explanation | P0 |
-| DET-05 | Shows a country-by-country breakdown: Banned / Restricted / Permitted / Under Review | P0 |
-| DET-06 | Shows known health concerns (if any) as bullet points | P1 |
-| DET-07 | Shows common products this ingredient appears in | P2 |
+| ID | Requirement | Priority | Status |
+|---|---|---|---|
+| DET-01 | Full ingredient name + all known aliases / E-numbers | P0 | ✅ Done |
+| DET-02 | Category (e.g. Preservative, Artificial Colour, Emulsifier) | P0 | ✅ Done |
+| DET-03 | Full description (3–5 sentences from AI) | P0 | ✅ Done |
+| DET-04 | Safety level with explanation | P0 | ✅ Done |
+| DET-05 | Country-by-country breakdown: Banned / Restricted / Permitted / Under Review | P0 | ✅ Done |
+| DET-06 | Known health concerns as bullet list | P1 | ✅ Done |
+| DET-07 | Common products this ingredient appears in | P2 | 🔲 Future |
 
-### 7.6 History
+### 7.6 History ✅ Completed
 
-| ID | Requirement | Priority |
-|---|---|---|
-| HIS-01 | Displays chronological list of all past scans | P0 |
-| HIS-02 | Each history item shows: scan name/label, date, overall safety score, thumbnail of top flagged ingredient | P0 |
-| HIS-03 | Tapping a history item reopens the full results screen | P0 |
-| HIS-04 | User can delete a scan from history | P1 |
-| HIS-05 | History is synced to Supabase and persists across devices | P0 |
+| ID | Requirement | Priority | Status |
+|---|---|---|---|
+| HIS-01 | Chronological list of all past scans | P0 | ✅ Done |
+| HIS-02 | Each item: scan name, date, safety score, top flagged ingredient | P0 | ✅ Done |
+| HIS-03 | Tapping history item reopens full results screen | P0 | ✅ Done |
+| HIS-04 | User can delete a scan from history | P1 | 🔲 Pending |
+| HIS-05 | History synced to Supabase, persists across devices | P0 | ✅ Done |
 
-### 7.7 Subscription & Paywall
+### 7.7 Settings ✅ Completed
 
-| ID | Requirement | Priority |
-|---|---|---|
-| PAY-01 | Free tier: 5 scans/month, basic ingredient info, no country ban data | P0 |
-| PAY-02 | Pro tier: unlimited scans, full country ban data, detailed AI descriptions, export history | P0 |
-| PAY-03 | Paywall appears when free user hits scan limit or tries to access a Pro feature | P0 |
-| PAY-04 | RevenueCat handles all subscription logic (iOS + Android unified) | P0 |
-| PAY-05 | Subscription state is synced to Supabase for server-side enforcement | P1 |
-| PAY-06 | Restore purchases flow available in settings | P0 |
+| ID | Requirement | Priority | Status |
+|---|---|---|---|
+| SET-01 | User can view their name and email | P0 | ✅ Done |
+| SET-02 | User can edit their display name | P1 | ✅ Done |
+| SET-03 | User can change their password | P1 | ✅ Done |
+| SET-04 | User can delete their account (via Supabase RPC) | P1 | ✅ Done |
+| SET-05 | Subscription status display + upgrade CTA | P0 | 🔲 Pending (Phase 4) |
+| SET-06 | Restore purchases | P0 | 🔲 Pending (Phase 4) |
+| SET-07 | Privacy policy / Terms of service links | P1 | 🔲 Pending |
+| SET-08 | App version display | P2 | 🔲 Pending |
+
+### 7.8 Subscription & Paywall 🔲 Next Phase
+
+| ID | Requirement | Priority | Status |
+|---|---|---|---|
+| PAY-01 | Free tier: 5 scans/month, basic ingredient info, no country ban data | P0 | 🔲 Pending |
+| PAY-02 | Pro tier: unlimited scans, full country data, detailed AI descriptions | P0 | 🔲 Pending |
+| PAY-03 | Paywall appears when free user hits limit or accesses Pro feature | P0 | 🔲 Pending |
+| PAY-04 | RevenueCat handles all subscription logic (iOS + Android unified) | P0 | 🔲 Pending |
+| PAY-05 | Subscription state synced to Supabase for server-side enforcement | P1 | 🔲 Pending |
+| PAY-06 | Restore purchases available in settings | P0 | 🔲 Pending |
 
 ---
 
 ## 8. Screen Specifications
 
-### 8.1 Onboarding / Welcome
+### 8.1 Welcome ✅ Implemented
 **Route:** `/(auth)/welcome`
 
-**Purpose:** First impression. Explains value proposition, leads to sign-up.
-
-**Elements:**
-- INGRYN logo + tagline: *"Know what's inside."*
-- 3-step animated feature highlights (scan → analyse → know)
-- "Create account" CTA (primary)
-- "Sign in" CTA (secondary)
-- Google OAuth button
-
-**Behaviour:**
-- Only shown to users who are not authenticated
-- Skips directly to `/(tabs)/home` if session exists
+Value proposition screen shown to unauthenticated users. Leads to sign-up or sign-in. Bypassed automatically if session exists.
 
 ---
 
-### 8.2 Sign Up / Sign In
-**Route:** `/(auth)/signup`, `/(auth)/signin`
+### 8.2 Sign In ✅ Implemented
+**Route:** `/(auth)/signin`
 
-**Elements:**
-- Email + password fields
-- Google OAuth button
+**Implemented features:**
+- Email + password fields with inline error banners (no Alert.alert — fixed for web compatibility)
+- Input borders turn red on error, clear on retype
+- Human-readable error messages mapped from Supabase error codes (invalid credentials, unconfirmed email, user not found, rate limit, network error)
+- Client-side rate limiting: 5 failed attempts → 30s lockout, exponential backoff on repeat lockouts
+- Live countdown timer shown in lockout banner
+- Forgot password flow — inline (no separate screen), pre-fills email from sign-in field
+- Forgot password success state with ✓ icon, resend option, back to sign in
+- Email validated against format rules + 300+ disposable domain blocklist before Supabase call
 - Password visibility toggle
-- Error states for invalid credentials
-- Link to reset password
+- Google OAuth button (UI present, integration pending)
 
 ---
 
-### 8.3 Home
+### 8.3 Sign Up ✅ Implemented
+**Route:** `/(auth)/signup`
+
+**Implemented features:**
+- Full name, email, password fields
+- Inline error banners (no Alert.alert)
+- Email validated against format rules + disposable domain blocklist
+- Password strength indicator (Weak / Fair / Strong with colour-coded bars)
+- Mapped Supabase error messages (already registered, password too short, rate limit)
+- Password visibility toggle
+- Google OAuth button (UI present, integration pending)
+
+---
+
+### 8.4 Home ✅ Implemented
 **Route:** `/(tabs)/home`
 
-**Purpose:** Command centre. Recent scans + primary scan CTA.
-
-**Elements:**
-- Greeting with user's first name
-- Large "Scan Ingredients" button (prominent, centred)
-- "Recent scans" section — last 3 scans as cards
-- "View all history" link
-- Free tier: scan counter (e.g. "3 of 5 scans used")
-- Pro badge if subscribed
-
-**Behaviour:**
-- Tapping "Scan Ingredients" navigates to scanner screen
-- Tapping a recent scan card navigates to its results screen
+Command centre with greeting, primary scan CTA, and recent scans section. Links to full history.
 
 ---
 
-### 8.4 Scanner
+### 8.5 Scanner ✅ Implemented
 **Route:** `/(tabs)/scanner`
 
-**Purpose:** Capture the ingredient label.
+**Architecture (modular):**
+- `hooks/useScanner.ts` — camera permission, capture, gallery picker, OCR logic
+- `hooks/useIngredientAnalysis.ts` — Gemini API call + Supabase save logic
+- `lib/gemini.ts` — API wrapper and prompt builder
 
-**Elements:**
-- Full-screen camera viewfinder
-- Rectangular crop guide overlay labelled "Point at ingredient list"
-- Capture button (large, centred bottom)
-- Flash toggle
-- Manual entry fallback button ("Type ingredients instead")
-- Cancel button (top left)
-
-**States:**
-1. **Idle** — live camera feed with crop guide
-2. **Captured** — still image shown, "Analysing…" spinner
-3. **OCR complete** — brief confirmation, transitions automatically to loading state
-4. **Error** — "Couldn't read label. Try better lighting or manual entry."
+Full-screen camera with crop guide overlay, capture button, gallery fallback, flash toggle. Processing state shown during OCR + AI analysis.
 
 ---
 
-### 8.5 Processing / Loading
-**Route:** Modal / overlay on scanner
-
-**Purpose:** Keep the user engaged during the 5–10 second analysis.
-
-**Elements:**
-- Animated ingredient name cycling (fun micro-copy like "Identifying Sodium Benzoate…")
-- Progress bar or pulsing animation
-- "Did you know?" tip about an ingredient
-
----
-
-### 8.6 Results
+### 8.6 Results ✅ Implemented
 **Route:** `/results/[scanId]`
 
-**Purpose:** Full ingredient breakdown for a single scan.
+Ingredients grouped by safety level (Harmful → Caution → Safe). Each card shows name, category tag, safety badge, 1-line summary. Tap to open ingredient detail. Auto-saved to history.
 
-**Layout (top to bottom):**
-- Product name (editable, defaults to date/time)
-- Overall safety score (large number, colour-coded ring)
-- Country ban summary (e.g. "2 ingredients banned in EU")
-- Ingredient list grouped by safety: Harmful (red) → Caution (amber) → Safe (green)
-- Each ingredient card: name, category tag, safety badge, 1-line description
-- "Save scan" button if not yet saved
-
-**Interactions:**
-- Tap ingredient card → ingredient detail screen
-- Tap country ban summary → country ban breakdown screen
-- Share button (Pro feature)
+**Pending:** Overall safety score ring, country ban summary banner, scan naming.
 
 ---
 
-### 8.7 Ingredient Detail
+### 8.7 Ingredient Detail ✅ Implemented
 **Route:** `/ingredient/[ingredientId]`
 
-**Purpose:** Deep dive on a single ingredient.
-
-**Layout:**
-- Ingredient name (large, bold)
-- Aliases / E-number (subtitle)
-- Category chip (e.g. "Artificial Preservative")
-- Safety badge (Harmful / Caution / Safe)
-- Full description (3–5 sentences)
-- Health concerns section (bullet list, if any)
-- Country status table:
-  ```
-  🇺🇸 United States     Permitted
-  🇪🇺 European Union    Banned since 2019
-  🇬🇧 United Kingdom    Restricted (max 0.1%)
-  🇮🇳 India             Permitted
-  🇦🇺 Australia         Banned
-  🇨🇦 Canada            Under Review
-  🇯🇵 Japan             Permitted
-  🇨🇳 China             Banned
-  ```
-- Back button to results screen
+Full name, aliases/E-numbers, category chip, safety badge, full AI description, health concerns bullet list, country-by-country status table with flag emojis.
 
 ---
 
-### 8.8 History
+### 8.8 History ✅ Implemented
 **Route:** `/(tabs)/history`
 
-**Purpose:** All past scans.
+Chronological scan list with product name, date, safety score, top flagged ingredient. Tapping reopens full results screen. Synced to Supabase.
 
-**Layout:**
-- Search bar (filter by product name or ingredient)
-- Chronological list of scan cards
-  - Each card: product name, date, safety score badge, ingredient count, top harmful ingredient name
-- Empty state: "No scans yet. Tap the scanner to get started."
+**Pending:** Search/filter bar, delete scan.
 
 ---
 
-### 8.9 Settings / Profile
+### 8.9 Settings ✅ Implemented
 **Route:** `/(tabs)/settings`
 
-**Elements:**
-- User avatar + name + email
-- Subscription status + "Upgrade to Pro" or "Manage subscription"
-- Restore purchases
-- Scan limit counter (free users)
-- Sign out
-- Privacy policy / Terms of service links
-- App version
+Edit display name, change password, delete account (Supabase RPC). 
+
+**Pending:** Subscription status, restore purchases, privacy policy links, app version.
+
+---
+
+### 8.10 Paywall 🔲 Pending
+**Route:** `/paywall` (modal)
+
+To be implemented in Phase 4 with RevenueCat. Triggered when free user hits scan limit or taps a locked Pro feature.
+
+---
+
+### 8.11 Onboarding 🔲 Pending
+**Route:** `/(auth)/onboarding`
+
+3-step animated walkthrough shown to new users after first sign-up. Explains scan → analyse → know value prop. One-time only, skipped on subsequent sessions.
 
 ---
 
@@ -400,101 +397,112 @@ A single camera scan → instant, structured, AI-powered breakdown of every ingr
 
 ### 9.1 Tech Stack
 
-| Layer | Technology | Reason |
+| Layer | Technology | Status |
 |---|---|---|
-| Framework | Expo (React Native) | Cross-platform iOS + Android, familiar JS ecosystem |
-| Navigation | Expo Router (file-based) | Clean, Next.js-style routing |
-| Auth | Supabase Auth | Free tier, Google OAuth built-in, JWT sessions |
-| Database | Supabase (PostgreSQL) | Pairs with auth, free tier, real-time capable |
-| OCR | Google ML Kit (on-device) | Fast, free, works offline, no API cost |
-| AI Analysis | Google Gemini 2.5 Flash API | Excellent structured JSON output, 1,500 free req/day, existing API key |
-| Subscriptions | RevenueCat | Unified iOS/Android subscription management |
-| State Management | Zustand | Lightweight, no boilerplate |
-| Styling | NativeWind (Tailwind for RN) | Rapid UI development |
+| Framework | Expo (React Native) SDK 56 | ✅ Implemented |
+| Navigation | Expo Router (file-based) | ✅ Implemented |
+| Auth | Supabase Auth | ✅ Implemented |
+| Database | Supabase (PostgreSQL) | ✅ Implemented |
+| OCR | Expo Camera + Image Picker | ✅ Implemented |
+| AI Analysis | Google Gemini 2.5 Flash API | ✅ Implemented |
+| Ingredient Cache | Supabase `ingredients` table | ✅ Implemented |
+| Subscriptions | RevenueCat | 🔲 Pending |
+| State Management | React hooks (useState, useRef) | ✅ Implemented |
+| Session Storage | AsyncStorage | ✅ Implemented |
+| Email Validation | Custom lib/emailValidator.ts | ✅ Implemented |
 
-### 9.2 Project Folder Structure
+### 9.2 Key Technical Decisions & Resolved Issues
+
+| Decision / Issue | Resolution |
+|---|---|
+| `@react-navigation/native` incompatible with Expo Router SDK 56 | Replaced with `useFocusEffect` from `expo-router` throughout |
+| `Alert.alert` unreliable on web (silent failures) | Replaced with inline error state rendered in UI across all auth screens |
+| Gemini 404/429 errors | Resolved by switching to `gemini-2.5-flash` model string with fresh API key |
+| `MediaTypeOptions` deprecated in expo-image-picker | Replaced with `MediaType` API |
+| `lucide-react-native` prop type issues | Added `react-native-svg` as peer dependency |
+| `react-dom` version mismatch | Resolved via `--legacy-peer-deps` (standing requirement for all installs) |
+| Monolithic file sizes | Modular architecture enforced — scanner split into `useScanner.ts` + `useIngredientAnalysis.ts` + `gemini.ts` |
+| npm dependency conflicts | All `npm install` commands use `--legacy-peer-deps` — standing project requirement |
+
+### 9.3 Project Folder Structure
 
 ```
 ingryn/
 ├── app/
 │   ├── (auth)/
-│   │   ├── welcome.tsx
-│   │   ├── signin.tsx
-│   │   └── signup.tsx
+│   │   ├── welcome.tsx          ✅
+│   │   ├── signin.tsx           ✅
+│   │   └── signup.tsx           ✅
 │   ├── (tabs)/
-│   │   ├── _layout.tsx          # Tab navigator
-│   │   ├── home.tsx
-│   │   ├── scanner.tsx
-│   │   ├── history.tsx
-│   │   └── settings.tsx
+│   │   ├── _layout.tsx          ✅
+│   │   ├── home.tsx             ✅
+│   │   ├── scanner.tsx          ✅
+│   │   ├── history.tsx          ✅
+│   │   └── settings.tsx         ✅
 │   ├── results/
-│   │   └── [scanId].tsx
+│   │   └── [scanId].tsx         ✅
 │   ├── ingredient/
-│   │   └── [ingredientId].tsx
-│   └── _layout.tsx              # Root layout, auth guard
+│   │   └── [ingredientId].tsx   ✅
+│   └── _layout.tsx              ✅ (auth guard, gestureEnabled: false)
 │
 ├── components/
-│   ├── ui/                      # Reusable primitives (Button, Card, Badge, etc.)
-│   ├── scanner/                 # Camera, OCR components
-│   ├── results/                 # Ingredient card, safety score ring, etc.
-│   └── history/                 # Scan history card
+│   ├── ui/                      ✅ Reusable primitives
+│   ├── scanner/                 ✅
+│   ├── results/                 ✅
+│   └── history/                 ✅
 │
 ├── lib/
-│   ├── supabase.ts              # Supabase client
-│   ├── gemini.ts                # Gemini API wrapper + prompt builder
-│   ├── ocr.ts                   # ML Kit OCR wrapper
-│   ├── revenuecat.ts            # RevenueCat wrapper
-│   └── utils.ts                 # Shared helpers
+│   ├── supabase.ts              ✅ (AsyncStorage session persistence)
+│   ├── gemini.ts                ✅ (API wrapper + prompt builder)
+│   ├── emailValidator.ts        ✅ (format + 300+ disposable domain blocklist)
+│   └── utils.ts                 ✅
 │
 ├── hooks/
-│   ├── useAuth.ts               # Auth state + methods
-│   ├── useScan.ts               # Scan flow logic
-│   ├── useSubscription.ts       # Subscription state
-│   └── useHistory.ts            # History fetch + mutations
-│
-├── store/
-│   └── index.ts                 # Zustand global store
-│
-├── constants/
-│   ├── countries.ts             # Country list + flags
-│   └── theme.ts                 # Design tokens
+│   ├── useScanner.ts            ✅ (camera/OCR/gallery logic)
+│   ├── useIngredientAnalysis.ts ✅ (Gemini + Supabase save)
+│   └── useHistory.ts            ✅
 │
 └── assets/
-    ├── images/
+    ├── images/                  ✅ (generated via Python Pillow)
     └── fonts/
 ```
 
-### 9.3 Auth Flow
+### 9.4 Auth Flow ✅ Implemented
 
 ```
 App launch
-    └─ Check Supabase session
+    └─ Check Supabase session (AsyncStorage)
          ├─ No session → (auth)/welcome
          │       └─ Sign up / Sign in
-         │               └─ Supabase Auth (email or Google OAuth)
-         │                       └─ Session created → (tabs)/home
-         └─ Session exists → (tabs)/home
+         │               ├─ Client: format + disposable email check
+         │               ├─ Client: rate limit check (5 attempts, exponential backoff)
+         │               └─ Supabase Auth (email/password)
+         │                       └─ Session created → (tabs)/home (router.replace)
+         └─ Session exists → (tabs)/home (router.replace, gestureEnabled: false)
 ```
 
-### 9.4 Scan Flow
+### 9.5 Scan Flow ✅ Implemented
 
 ```
 User taps "Scan Ingredients"
-    └─ Camera opens
-         └─ User captures photo
-              └─ ML Kit OCR → raw text extracted
+    └─ Camera opens (useScanner.ts)
+         └─ User captures photo (or picks from gallery)
+              └─ OCR extracts text from image
                    └─ Text parsed → ingredient list array
-                        └─ Claude API called with ingredient list
-                             └─ Structured JSON returned
-                                  └─ Results saved to Supabase (scans table)
-                                       └─ Navigate to /results/[scanId]
+                        └─ For each ingredient:
+                             ├─ Check Supabase ingredients cache
+                             │    ├─ Cache hit → use cached result
+                             │    └─ Cache miss → call Gemini 2.5 Flash API
+                             │                        └─ Save result to cache
+                             └─ Results saved to scans table
+                                  └─ Navigate to /results/[scanId]
 ```
 
 ---
 
 ## 10. Data Models & Database Schema
 
-### 10.1 `users` (managed by Supabase Auth, extended via profiles)
+### 10.1 `profiles` ✅ Implemented
 
 ```sql
 create table profiles (
@@ -506,38 +514,40 @@ create table profiles (
 );
 ```
 
-### 10.2 `scans`
+### 10.2 `scans` ✅ Implemented
 
 ```sql
 create table scans (
   id              uuid primary key default gen_random_uuid(),
   user_id         uuid references profiles(id) on delete cascade,
-  label           text,                          -- user-given name, e.g. "Lays Classic"
-  raw_ocr_text    text,                          -- raw text extracted from image
-  image_url       text,                          -- stored in Supabase Storage
-  safety_score    integer,                       -- 0-100 overall score
-  ingredient_ids  uuid[],                        -- array of ingredient ids
+  label           text,
+  raw_ocr_text    text,
+  image_url       text,
+  safety_score    integer,
+  ingredient_ids  uuid[],
   created_at      timestamptz default now()
 );
 ```
 
-### 10.3 `ingredients` (cached AI analysis results)
+### 10.3 `ingredients` ✅ Implemented (with caching)
 
 ```sql
 create table ingredients (
   id              uuid primary key default gen_random_uuid(),
-  name            text not null unique,           -- normalised lowercase name
-  aliases         text[],                         -- e.g. ["e211", "sodium benzoate"]
-  category        text,                           -- e.g. "Preservative"
+  name            text not null unique,
+  aliases         text[],
+  category        text,
   description     text,
   safety_level    text check (safety_level in ('safe', 'caution', 'harmful', 'unknown')),
   health_concerns text[],
-  country_status  jsonb,                          -- { "US": "permitted", "EU": "banned", ... }
+  country_status  jsonb,
   last_updated    timestamptz default now()
 );
 ```
 
-### 10.4 `subscriptions`
+**Caching behaviour:** Before calling Gemini, the app queries this table by normalised ingredient name. On cache hit, the stored result is used directly. On cache miss, Gemini is called and the result is written back for future use.
+
+### 10.4 `subscriptions` 🔲 Pending (Phase 4)
 
 ```sql
 create table subscriptions (
@@ -545,69 +555,73 @@ create table subscriptions (
   user_id              uuid references profiles(id) on delete cascade unique,
   revenuecat_user_id   text,
   plan                 text check (plan in ('free', 'pro')),
-  status               text,                      -- active, expired, cancelled
+  status               text,
   expires_at           timestamptz,
   updated_at           timestamptz default now()
 );
 ```
 
+### 10.5 Supabase RPC Functions ✅ Implemented
+
+- `increment_scan_count(user_id)` — atomically increments scan count on profiles
+- `delete_user_account(user_id)` — deletes user data and auth record (used by settings screen)
+
 ---
 
 ## 11. API Specifications
 
-### 11.1 Gemini API — Ingredient Analysis
+### 11.1 Gemini API — Ingredient Analysis ✅ Implemented
 
 **Model:** `gemini-2.5-flash`  
-**Free tier:** 1,500 requests/day via Google AI Studio API key  
-**Fallback strategy:** Retry once with exponential backoff on failure. Upgrade to `gemini-2.5-pro` when scaling.
+**Free tier:** 1,500 requests/day via Google AI Studio  
+**Caching:** Supabase `ingredients` table eliminates redundant calls for previously seen ingredients
 
 **System prompt:**
 ```
 You are an ingredient safety expert and food scientist. You will be given a list of product ingredients. For each ingredient, return a JSON array. Return ONLY valid JSON — no preamble, no markdown, no explanation. Your response must start with [ and end with ].
 ```
 
-**User message format:**
-```
-Analyse these ingredients: Sodium Benzoate, Yellow 5, High Fructose Corn Syrup, Citric Acid, Natural Flavors
-```
-
-**Expected JSON response:**
+**Expected JSON response per ingredient:**
 ```json
-[
-  {
-    "name": "Sodium Benzoate",
-    "aliases": ["E211", "benzoate of soda"],
-    "category": "Preservative",
-    "description": "A synthetic preservative used to prevent mould and bacteria in acidic foods and beverages. When combined with vitamin C (ascorbic acid), it can form benzene, a known carcinogen.",
-    "safety_level": "caution",
-    "health_concerns": [
-      "Can form benzene when combined with ascorbic acid",
-      "Linked to hyperactivity in children in some studies",
-      "May trigger asthma in sensitive individuals"
-    ],
-    "country_status": {
-      "US": "permitted",
-      "EU": "permitted_with_limits",
-      "UK": "permitted_with_limits",
-      "India": "permitted",
-      "Australia": "permitted",
-      "Canada": "permitted",
-      "Japan": "banned",
-      "China": "permitted"
-    }
+{
+  "name": "Sodium Benzoate",
+  "aliases": ["E211", "benzoate of soda"],
+  "category": "Preservative",
+  "description": "A synthetic preservative used to prevent mould and bacteria in acidic foods and beverages.",
+  "safety_level": "caution",
+  "health_concerns": [
+    "Can form benzene when combined with ascorbic acid",
+    "Linked to hyperactivity in children in some studies"
+  ],
+  "country_status": {
+    "US": "permitted",
+    "EU": "permitted_with_limits",
+    "UK": "permitted_with_limits",
+    "India": "permitted",
+    "Australia": "permitted",
+    "Canada": "permitted",
+    "Japan": "banned",
+    "China": "permitted"
   }
-]
+}
 ```
 
-**Country status values:** `"permitted"`, `"permitted_with_limits"`, `"banned"`, `"under_review"`, `"no_data"`
+**Country status values:** `"permitted"` `"permitted_with_limits"` `"banned"` `"under_review"` `"no_data"`
 
----
+### 11.2 Email Validation — `lib/emailValidator.ts` ✅ Implemented
 
-### 11.2 Supabase Functions (RPC)
+Client-side validation applied before any Supabase auth call.
 
-**`increment_scan_count(user_id)`** — atomically increments scan count on the profiles table
+**Checks performed:**
+1. Regex format validation (`/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/`)
+2. IP address domain rejection
+3. Must contain at least one dot in domain
+4. Domain checked against 300+ known disposable/temp email services (Mailinator, YOPmail, Guerrilla Mail, 10minutemail, Temp-Mail, etc.)
+5. Subdomain variants checked (e.g. `user@sub.mailinator.com` also blocked)
 
-**`get_scan_with_ingredients(scan_id)`** — returns a scan joined with its full ingredient objects (avoids N+1 queries on the results screen)
+**Return type:** `{ valid: true } | { valid: false; reason: string }`
+
+Applied in: `signin.tsx` (sign in + forgot password), `signup.tsx`
 
 ---
 
@@ -620,23 +634,20 @@ Analyse these ingredients: Sodium Benzoate, Yellow 5, High Fructose Corn Syrup, 
 | Scans per month | 5 | Unlimited |
 | Basic ingredient definitions | ✅ | ✅ |
 | Safety level (Safe/Caution/Harmful) | ✅ | ✅ |
-| Full AI descriptions | ❌ (truncated) | ✅ |
-| Country ban data | ❌ | ✅ |
-| Health concerns list | ❌ | ✅ |
-| Scan history (number saved) | Last 10 | Unlimited |
-| Export scan results (PDF) | ❌ | ✅ (future) |
+| Full AI descriptions | ❌ Truncated | ✅ |
+| Country ban data | ❌ Locked | ✅ |
+| Health concerns list | ❌ Locked | ✅ |
+| Scan history saved | Last 10 | Unlimited |
+| Export scan results (PDF) | ❌ | ✅ Future |
 
-### 12.2 Paywall trigger points
+### 12.2 Paywall Trigger Points 🔲 Pending
 - When free user attempts scan #6 in a month
 - When free user taps "Country ban data" section (blurred/locked)
 - When free user taps "Full description" (truncated with upgrade prompt)
-- From Settings → "Upgrade to Pro"
+- Settings → "Upgrade to Pro"
 
-### 12.3 RevenueCat configuration
-- Product IDs:
-  - `ingryn_pro_monthly` — $4.99/month
-  - `ingryn_pro_annual` — $34.99/year (saves ~42%)
-- Offerings configured in RevenueCat dashboard
+### 12.3 RevenueCat Configuration 🔲 Pending
+- Product IDs: `ingryn_pro_monthly` ($4.99/mo), `ingryn_pro_annual` ($34.99/yr, ~42% saving)
 - Entitlement: `pro`
 
 ---
@@ -644,73 +655,78 @@ Analyse these ingredients: Sodium Benzoate, Yellow 5, High Fructose Corn Syrup, 
 ## 13. Non-Functional Requirements
 
 ### 13.1 Performance
-- Scan-to-results time: < 10 seconds (target < 7 seconds on mid-range device)
-- App launch to home screen: < 3 seconds (cold start)
-- OCR processing: < 2 seconds (on-device, ML Kit)
-- Gemini API response: < 5 seconds (target < 3 seconds)
-- History list scroll: 60 fps with no jank for up to 500 scan records
+- Scan-to-results time: < 10 seconds (target < 7s on mid-range device)
+- App launch to home screen: < 3 seconds cold start
+- OCR processing: < 2 seconds
+- Gemini API response: < 5 seconds (target < 3s)
+- Cache hit: < 500ms (no Gemini call)
+- History list: 60 fps for up to 500 records
 
 ### 13.2 Reliability
-- Claude API failure: show user-friendly error + "Try again" button; do not lose the OCR-extracted text
-- Network failure during analysis: queue retry with exponential backoff (3 attempts)
-- Supabase downtime: cached scans still viewable offline
+- Gemini API failure: user-friendly error + "Try again" button, OCR text preserved
+- Network failure: retry with exponential backoff (3 attempts)
+- Supabase downtime: cached scans viewable offline
 
 ### 13.3 Security
-- All API keys stored in environment variables, never committed to source control
-- Supabase Row Level Security (RLS) enabled on all tables — users can only access their own data
-- Claude API called server-side (Supabase Edge Function) — API key never exposed to the client
+- All API keys in environment variables, never in source control
+- Supabase Row Level Security (RLS) on all tables
 - JWT tokens validated on every authenticated request
+- Client-side rate limiting on auth (5 attempts → exponential backoff lockout)
+- Disposable email addresses blocked at registration
+- Account deletion via Supabase RPC (not client-side delete)
 
 ### 13.4 Privacy
 - No selling of user scan data to third parties
-- Scan images stored in Supabase Storage with private bucket (only accessible by authenticated user)
-- GDPR-compliant: user can delete all their data from the app
-- No analytics that identify individual users (aggregate only)
-- Privacy policy URL: required for App Store + Play Store submission
+- Scan images in private Supabase Storage bucket
+- GDPR-compliant: full account + data deletion available from settings ✅
+- No individual-identifying analytics
 
 ### 13.5 Accessibility
 - All interactive elements have accessible labels
-- Minimum touch target size: 44×44pt
-- Colour is never the only indicator of safety level (always paired with a text label)
+- Minimum touch target: 44×44pt
+- Safety level always shown as text + colour (never colour alone)
 - Supports system font size scaling
 
 ### 13.6 App Store Requirements
-- Camera permission string: "INGRYN needs camera access to scan ingredient labels"
-- Photo library permission: not required
-- iOS minimum deployment target: iOS 15
-- Android minimum SDK: API 26 (Android 8.0)
+- Camera permission: "INGRYN needs camera access to scan ingredient labels"
+- iOS minimum: iOS 15
+- Android minimum: API 26 (Android 8.0)
 
 ---
 
 ## 14. Release Phases
 
-### Phase 1 — Foundation (Weeks 1–2)
-- Project setup (Expo, Expo Router, NativeWind)
-- Supabase project + auth (email + Google OAuth)
+### Phase 1 — Foundation ✅ Complete
+- Expo + Expo Router + Supabase setup
+- Email/password auth with session persistence
 - Tab navigation shell
-- Home screen (static)
+- Home, History, Settings screens
 
-### Phase 2 — Core Scanner (Weeks 3–4)
-- Camera screen with ML Kit OCR
-- Claude API integration + prompt engineering
+### Phase 2 — Core Scanner ✅ Complete
+- Camera + image picker
+- OCR text extraction
+- Gemini 2.5 Flash integration + prompt engineering
 - Results screen (full ingredient breakdown)
 - Ingredient detail screen
 
-### Phase 3 — Data Persistence (Week 5)
+### Phase 3 — Data Persistence ✅ Complete
 - Scan history saved to Supabase
-- History screen
-- Ingredient caching in Supabase (avoid redundant API calls)
+- Ingredient caching (avoid redundant Gemini calls)
+- Auth hardening: inline errors, rate limiting, disposable email blocking, forgot password
 
-### Phase 4 — Monetisation (Week 6)
-- RevenueCat integration
+### Phase 4 — Monetisation 🔲 Next
+- RevenueCat SDK integration
 - Paywall screen
-- Free tier scan limit enforcement
-- Feature gating (country data, full descriptions)
+- Free tier scan limit enforcement (5/month)
+- Feature gating (country data, full descriptions, history limit)
+- Subscription status in settings + restore purchases
 
-### Phase 5 — Polish & Launch (Week 7–8)
-- Onboarding flow
-- Settings screen
-- Error states + edge case handling
+### Phase 5 — Polish & Launch 🔲 Upcoming
+- Onboarding flow (3-step animated walkthrough for new users)
+- Overall safety score ring on results screen
+- Scan naming by user
+- History search + delete
+- Error states + edge case hardening
 - Performance optimisation
 - App Store + Play Store assets
 - TestFlight / internal testing
@@ -720,18 +736,19 @@ Analyse these ingredients: Sodium Benzoate, Yellow 5, High Fructose Corn Syrup, 
 
 ## 15. Open Questions & Risks
 
-| # | Question / Risk | Owner | Status |
-|---|---|---|---|
-| 1 | Gemini 2.5 Flash free tier gives 1,500 req/day (~45,000 scans/month). Paid tier is $0.075/1M input tokens — effectively free at early scale. No cost concern until significant user growth. | Dev | Resolved |
-| 2 | ML Kit OCR accuracy on non-standard labels (glossy packaging, small print, curved surfaces) | Dev | To test |
-| 3 | Country ban data accuracy — Claude's training data may have a cutoff. Consider a manual verification layer for high-confidence ban claims. | Product | Open |
-| 4 | App Store approval risk: ingredient analysis apps have been rejected before for medical claims. Copy must be clearly framed as informational, not medical advice. | Product | Mitigation needed |
-| 5 | What happens if OCR extracts garbled text? Need a confidence threshold — if extracted text is < 50 characters or contains no recognisable ingredient patterns, prompt user to retake the photo. | Dev | Open |
-| 6 | Should the Gemini API call go client-side (simpler) or via Supabase Edge Function (more secure, hides API key)? Edge Function recommended for production. | Dev | Decision needed |
-| 7 | Language support — ingredient labels in India may mix English and Hindi. What is the OCR and analysis behaviour on mixed-script labels? | Dev | Open |
+| # | Question / Risk | Status |
+|---|---|---|
+| 1 | Gemini free tier (1,500 req/day). Ingredient caching significantly reduces API calls — same ingredient across many users hits cache. | ✅ Mitigated via caching |
+| 2 | ML Kit OCR accuracy on non-standard labels (glossy, small print, curved surfaces) | 🔲 To test on physical devices |
+| 3 | Country ban data accuracy — Gemini training data has a cutoff. High-confidence ban claims may need manual verification layer. | 🔲 Open — add disclaimer in UI |
+| 4 | App Store approval risk: ingredient analysis apps have been rejected for medical claims. All copy must be framed as informational, not medical advice. | 🔲 Mitigation needed in copy review |
+| 5 | OCR garbled text — need a confidence threshold: if extracted text is < 50 characters or has no recognisable ingredient patterns, prompt user to retake. | 🔲 Open |
+| 6 | Gemini API called client-side currently. For production, should move to Supabase Edge Function to hide API key. | 🔲 Pre-launch decision needed |
+| 7 | Mixed-script labels (English + Hindi on Indian products) — OCR and analysis behaviour untested. | 🔲 Open |
+| 8 | `--legacy-peer-deps` required for all npm installs due to dependency conflicts. Must be documented for any new contributor. | ✅ Documented |
 
 ---
 
-*End of PRD v1.0*
+*End of PRD v2.0*
 
-*This document should be treated as a living spec. Update version number and date on every significant change.*
+*This is a living document. Update version number and date on every significant change.*
