@@ -6,7 +6,7 @@ import { View, ActivityIndicator } from 'react-native'
 import 'react-native-url-polyfill/auto'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/index'
-import { User } from '@supabase/supabase-js'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, setUser } = useAuthStore()
@@ -31,13 +31,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (loading) return
 
     const inAuthGroup = segments[0] === '(auth)'
-    const inTabsGroup = segments[0] === '(tabs)'
+    const currentSegment = segments[1]
+
+    // Never interrupt onboarding
+    if (currentSegment === 'onboarding') return
 
     if (!user && !inAuthGroup) {
-      // Not logged in — always push back to welcome, no going back
       router.replace('/(auth)/welcome')
     } else if (user && inAuthGroup) {
-      // Logged in — always push to home, can't go back to auth
       router.replace('/(tabs)/home')
     }
   }, [user, segments, loading])
@@ -62,42 +63,22 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
-      <AuthGate>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            gestureEnabled: false, // prevents swipe-back bypassing auth
-            animation: 'fade',
-          }}
-        >
-          <Stack.Screen
-            name="(auth)"
-            options={{
-              gestureEnabled: false, // can't swipe back into auth once logged in
+      <ErrorBoundary>
+        <AuthGate>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              gestureEnabled: false,
+              animation: 'fade',
             }}
-          />
-          <Stack.Screen
-            name="(tabs)"
-            options={{
-              gestureEnabled: false, // can't swipe back to auth from tabs
-            }}
-          />
-          <Stack.Screen
-            name="results/[scanId]"
-            options={{
-              presentation: 'card',
-              gestureEnabled: true, // can swipe back within app
-            }}
-          />
-          <Stack.Screen
-            name="ingredient/[ingredientId]"
-            options={{
-              presentation: 'card',
-              gestureEnabled: true,
-            }}
-          />
-        </Stack>
-      </AuthGate>
+          >
+            <Stack.Screen name="(auth)" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="results/[scanId]" options={{ presentation: 'card', gestureEnabled: true }} />
+            <Stack.Screen name="ingredient/[ingredientId]" options={{ presentation: 'card', gestureEnabled: true }} />
+          </Stack>
+        </AuthGate>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   )
 }

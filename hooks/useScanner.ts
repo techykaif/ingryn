@@ -3,6 +3,7 @@ import { Platform, Alert } from 'react-native'
 import { CameraView } from 'expo-camera'
 import * as ImagePicker from 'expo-image-picker'
 import { saveAnalysis } from './useIngredientAnalysis'
+import { useDietaryPreferences } from './useDietaryPreferences'
 
 export const IS_WEB = Platform.OS === 'web'
 
@@ -17,6 +18,7 @@ const PROCESSING_TIPS = [
 ]
 
 export function useScanner(userId: string, onSuccess: (scanId: string) => void) {
+  const { preferences } = useDietaryPreferences()
   const [step, setStep] = useState<ScanStep>('camera')
   const [flash, setFlash] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
@@ -54,8 +56,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
   const processText = useCallback(async (text: string) => {
     setStep('processing')
     startTipCycle()
-
-    const { scanId, error } = await saveAnalysis(text, userId)
+    const { scanId, error } = await saveAnalysis(text, userId, preferences)
 
     stopTipCycle()
 
@@ -68,7 +69,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     setManualText('')
     setStep(IS_WEB ? 'manual' : 'camera')
     onSuccess(scanId)
-  }, [userId, startTipCycle, stopTipCycle, onSuccess])
+  }, [userId, preferences, startTipCycle, stopTipCycle, onSuccess])
 
   const recognizeFromUri = useCallback(async (uri: string) => {
     if (IS_WEB) {

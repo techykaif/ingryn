@@ -1,9 +1,11 @@
 import { supabase } from '@/lib/supabase'
-import { analyzeIngredients, IngredientAnalysis } from '@/lib/gemini'
+import { useDietaryPreferences } from './useDietaryPreferences'
+import { analyzeIngredients, IngredientAnalysis, UserPreferences } from '@/lib/gemini'
 
 export async function saveAnalysis(
   text: string,
-  userId: string
+  userId: string,
+  preferences?: UserPreferences
 ): Promise<{ scanId: string; error?: string }> {
   try {
     const ingredientNames = parseIngredientNames(text)
@@ -18,7 +20,7 @@ export async function saveAnalysis(
     // Step 2: Only call Gemini for ingredients not in cache
     let newIds: string[] = []
     if (unknownNames.length > 0) {
-      const analysis = await analyzeIngredients(unknownNames.join(', '))
+      const analysis = await analyzeIngredients(unknownNames.join(', '), preferences)
       newIds = await saveIngredients(analysis)
     }
 

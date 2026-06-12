@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
+import { DietaryPreferencesModal } from '@/components/DietaryPreferencesModal'
 
 export default function SettingsScreen() {
   const { user } = useAuthStore()
@@ -14,6 +15,7 @@ export default function SettingsScreen() {
   const [editNameModal, setEditNameModal] = useState(false)
   const [changePasswordModal, setChangePasswordModal] = useState(false)
   const [deleteModal, setDeleteModal] = useState(false)
+  const [dietaryModal, setDietaryModal] = useState(false)
 
   const fullName = user?.user_metadata?.full_name || 'User'
   const email = user?.email || ''
@@ -90,6 +92,20 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Health section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Health</Text>
+          <View style={styles.sectionCard}>
+            <SettingsRow
+              icon="🥗"
+              label="Dietary preferences"
+              value="Manage"
+              onPress={() => setDietaryModal(true)}
+              showArrow
+            />
+          </View>
+
+        </View>
         {/* App section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>App</Text>
@@ -176,6 +192,10 @@ export default function SettingsScreen() {
       <DeleteAccountModal
         visible={deleteModal}
         onClose={() => setDeleteModal(false)}
+      />
+      <DietaryPreferencesModal
+        visible={dietaryModal}
+        onClose={() => setDietaryModal(false)}
       />
     </View>
   )
@@ -379,6 +399,7 @@ function DeleteAccountModal({
           <TouchableOpacity style={modalStyles.cancelButton} onPress={onClose}>
             <Text style={modalStyles.cancelText}>Cancel</Text>
           </TouchableOpacity>
+
         </View>
       </View>
     </Modal>

@@ -9,9 +9,19 @@ export type IngredientAnalysis = {
   safety_level: 'safe' | 'caution' | 'harmful' | 'unknown'
   health_concerns: string[]
   country_status: Record<string, string>
+  personal_flag?: string | null
 }
 
-export async function analyzeIngredients(ingredientText: string): Promise<IngredientAnalysis[]> {
+export type UserPreferences = {
+  conditions: string[]
+  allergies: string[]
+  diet_type: string
+}
+
+export async function analyzeIngredients(
+  ingredientText: string,
+  preferences?: UserPreferences
+): Promise<IngredientAnalysis[]> {
   if (!GEMINI_API_KEY) {
     throw new Error('Gemini API key is missing. Check EXPO_PUBLIC_GEMINI_API_KEY in .env')
   }
@@ -22,8 +32,18 @@ export async function analyzeIngredients(ingredientText: string): Promise<Ingred
     .replace(/\s+/g, ' ')
     .trim()
 
-  const prompt = `You are an ingredient safety expert and food scientist. Analyze these product ingredients and return a JSON array. Return ONLY valid JSON — no preamble, no markdown, no backticks, no explanations. Your response must start with [ and end with ].
+  const preferencesContext = preferences &&
+    (preferences.conditions.length > 0 || preferences.allergies.length > 0 || preferences.diet_type !== 'none')
+    ? `
+User health context (flag ingredients relevant to these):
+- Health conditions: ${preferences.conditions.length > 0 ? preferences.conditions.join(', ') : 'none'}
+- Allergies: ${preferences.allergies.length > 0 ? preferences.allergies.join(', ') : 'none'}
+- Diet type: ${preferences.diet_type !== 'none' ? preferences.diet_type : 'no specific diet'}
+`
+    : ''
 
+  const prompt = `You are an ingredient safety expert and food scientist. Analyze these product ingredients and return a JSON array. Return ONLY valid JSON — no preamble, no markdown, no backticks, no explanations. Your response must start with [ and end with ].
+${preferencesContext}
 For each ingredient provide:
 - name: string
 - aliases: string[] (E-numbers, alternative names)
@@ -33,6 +53,7 @@ For each ingredient provide:
 - health_concerns: string[] (empty array if none)
 - country_status: object with keys: US, EU, UK, India, Australia, Canada, Japan, China
   Values must be one of: "permitted", "permitted_with_limits", "banned", "under_review", "no_data"
+- personal_flag: string | null (only if this ingredient is relevant to the user's health conditions or allergies — explain why briefly, otherwise null)
 
 Ingredients to analyze: ${cleanedInput}`
 
