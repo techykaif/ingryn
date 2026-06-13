@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator, Alert, TextInput, Modal
+  ScrollView, ActivityIndicator, TextInput, Modal
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { supabase } from '@/lib/supabase'
+import { useDietaryPreferences } from '@/hooks/useDietaryPreferences'
 
 type Ingredient = {
   id: string
@@ -16,6 +17,7 @@ type Ingredient = {
   safety_level: 'safe' | 'caution' | 'harmful' | 'unknown'
   health_concerns: string[]
   country_status: Record<string, string>
+  personal_flag?: string | null
 }
 
 type Scan = {
@@ -30,9 +32,12 @@ type Scan = {
 export default function ResultsScreen() {
   const { scanId } = useLocalSearchParams<{ scanId: string }>()
   const router = useRouter()
+  const { preferences } = useDietaryPreferences()
+
   const [scan, setScan] = useState<Scan | null>(null)
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
   const [labelModal, setLabelModal] = useState(false)
   const [labelText, setLabelText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -60,8 +65,7 @@ export default function ResultsScreen() {
           .in('id', scanData.ingredient_ids)
 
         if (ingredientError) throw ingredientError
-        
-        // Sort: harmful first, then caution, then safe
+
         const sorted = (ingredientData || []).sort((a, b) => {
           const order = { harmful: 0, caution: 1, unknown: 2, safe: 3 }
           return (order[a.safety_level as keyof typeof order] ?? 2) -
@@ -70,8 +74,7 @@ export default function ResultsScreen() {
         setIngredients(sorted)
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message)
-      router.back()
+      setErrorMsg(e.message)
     } finally {
       setLoading(false)
     }
@@ -85,12 +88,83 @@ export default function ResultsScreen() {
       .update({ label: labelText.trim() })
       .eq('id', scanId)
     setSaving(false)
-    if (error) {
-      Alert.alert('Error', error.message)
-    } else {
+    if (!error) {
       setScan(prev => prev ? { ...prev, label: labelText.trim() } : prev)
       setLabelModal(false)
     }
+  }
+
+  // ─── Dietary flag helpers ─────────────────────────────────────────
+  const hasPreferences =
+    preferences.conditions.length > 0 ||
+    preferences.allergies.length > 0 ||
+    preferences.diet_type !== 'none'
+
+  function getPersonalFlag(ingredient: Ingredient): string | null {
+    if (!hasPreferences) return null
+
+    // Use AI-generated personal_flag if present
+    if (ingredient.personal_flag) return ingredient.personal_flag
+
+    // Fallback: local check against allergen keywords in name/aliases
+    const haystack = [
+      ingredient.name,
+      ...(ingredient.aliases || []),
+      ingredient.category,
+    ].join(' ').toLowerCase()
+
+    const allergyKeywords: Record<string, string[]> = {
+      gluten: ['gluten', 'wheat', 'barley', 'rye', 'malt'],
+      dairy: ['dairy', 'milk', 'lactose', 'casein', 'whey', 'cream', 'butter'],
+      nuts: ['almond', 'cashew', 'walnut', 'pecan', 'hazelnut', 'pistachio'],
+      peanuts: ['peanut', 'groundnut', 'arachis'],
+      soy: ['soy', 'soya', 'soybean', 'tofu'],
+      eggs: ['egg', 'albumin', 'lecithin'],
+      shellfish: ['shrimp', 'crab', 'lobster', 'shellfish', 'prawn'],
+      fish: ['fish', 'anchovy', 'salmon', 'tuna', 'cod'],
+      sulphites: ['sulphite', 'sulfite', 'sulphur', 'sulfur', 'e220', 'e221', 'e222', 'e223', 'e224'],
+      sesame: ['sesame', 'tahini', 'til'],
+    }
+
+    const conditionKeywords: Record<string, string[]> = {
+      diabetes: ['sugar', 'fructose', 'glucose', 'dextrose', 'maltose', 'sucrose', 'syrup', 'sweetener'],
+      hypertension: ['sodium', 'salt', 'monosodium', 'msg'],
+      celiac: ['gluten', 'wheat', 'barley', 'rye'],
+      kidney_disease: ['potassium', 'phosphate', 'phosphorus', 'sodium'],
+      heart_disease: ['trans fat', 'hydrogenated', 'palm oil', 'saturated'],
+      pregnancy: ['caffeine', 'retinol', 'vitamin a', 'aspartame', 'saccharin', 'nitrate', 'nitrite'],
+    }
+
+    const dietKeywords: Record<string, string[]> = {
+      vegan: ['gelatin', 'carmine', 'e120', 'lard', 'rennet', 'casein', 'whey', 'albumin', 'lactose'],
+      vegetarian: ['gelatin', 'lard', 'rennet', 'carmine', 'e120'],
+      halal: ['alcohol', 'ethanol', 'gelatin', 'lard', 'pork'],
+      kosher: ['lard', 'pork', 'shellfish', 'gelatin'],
+      keto: ['sugar', 'glucose', 'fructose', 'maltodextrin', 'starch', 'dextrose'],
+    }
+
+    for (const allergy of preferences.allergies) {
+      const keywords = allergyKeywords[allergy] || []
+      if (keywords.some(k => haystack.includes(k))) {
+        return `May trigger your ${allergy} allergy`
+      }
+    }
+
+    for (const condition of preferences.conditions) {
+      const keywords = conditionKeywords[condition] || []
+      if (keywords.some(k => haystack.includes(k))) {
+        return `May be relevant to your ${condition.replace('_', ' ')}`
+      }
+    }
+
+    if (preferences.diet_type !== 'none') {
+      const keywords = dietKeywords[preferences.diet_type] || []
+      if (keywords.some(k => haystack.includes(k))) {
+        return `May not be suitable for ${preferences.diet_type} diet`
+      }
+    }
+
+    return null
   }
 
   const getScoreColor = (score: number) => {
@@ -109,24 +183,33 @@ export default function ResultsScreen() {
     return labels[level as keyof typeof labels] || 'Unknown'
   }
 
-  const getBannedCount = () => {
-    return ingredients.filter(i =>
-      Object.values(i.country_status || {}).includes('banned')
-    ).length
-  }
+  const getBannedCount = () =>
+    ingredients.filter(i => Object.values(i.country_status || {}).includes('banned')).length
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString('en-US', {
       month: 'long', day: 'numeric', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
+      hour: '2-digit', minute: '2-digit',
     })
-  }
+
+  const flaggedIngredients = ingredients.filter(i => getPersonalFlag(i))
 
   if (loading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color="#00E5A0" size="large" />
         <Text style={styles.loadingText}>Loading results...</Text>
+      </View>
+    )
+  }
+
+  if (errorMsg) {
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.errorText}>{errorMsg}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backFallback}>
+          <Text style={styles.backFallbackText}>Go back</Text>
+        </TouchableOpacity>
       </View>
     )
   }
@@ -153,10 +236,7 @@ export default function ResultsScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.labelButton}
-            onPress={() => setLabelModal(true)}
-          >
+          <TouchableOpacity style={styles.labelButton} onPress={() => setLabelModal(true)}>
             <Text style={styles.labelButtonText} numberOfLines={1}>
               {scan.label || 'Name this scan'}
             </Text>
@@ -168,15 +248,11 @@ export default function ResultsScreen() {
         <View style={styles.scoreCard}>
           <View style={styles.scoreLeft}>
             <Text style={styles.scoreTitle}>Safety score</Text>
-            <Text style={[styles.scoreNumber, { color: scoreColor }]}>
-              {scan.safety_score}
-            </Text>
+            <Text style={[styles.scoreNumber, { color: scoreColor }]}>{scan.safety_score}</Text>
             <Text style={styles.scoreDate}>{formatDate(scan.created_at)}</Text>
           </View>
           <View style={[styles.scoreRing, { borderColor: scoreColor }]}>
-            <Text style={[styles.scoreRingNumber, { color: scoreColor }]}>
-              {scan.safety_score}
-            </Text>
+            <Text style={[styles.scoreRingNumber, { color: scoreColor }]}>{scan.safety_score}</Text>
             <Text style={[styles.scoreRingLabel, { color: scoreColor }]}>
               {scan.safety_score >= 75 ? 'Safe' : scan.safety_score >= 45 ? 'Caution' : 'Harmful'}
             </Text>
@@ -206,6 +282,21 @@ export default function ResultsScreen() {
           </View>
         </View>
 
+        {/* Personal flags alert — only shown if user has preferences set */}
+        {hasPreferences && flaggedIngredients.length > 0 && (
+          <View style={styles.personalAlert}>
+            <Text style={styles.personalAlertIcon}>⚠️</Text>
+            <View style={styles.personalAlertContent}>
+              <Text style={styles.personalAlertTitle}>
+                {flaggedIngredients.length} ingredient{flaggedIngredients.length > 1 ? 's' : ''} flagged for you
+              </Text>
+              <Text style={styles.personalAlertSub}>
+                Based on your dietary preferences
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Country ban alert */}
         {bannedCount > 0 && (
           <View style={styles.banAlert}>
@@ -218,56 +309,71 @@ export default function ResultsScreen() {
 
         {/* Ingredients list */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Ingredients ({ingredients.length})
-          </Text>
-          {ingredients.map((ingredient) => (
-            <TouchableOpacity
-              key={ingredient.id}
-              style={styles.ingredientCard}
-              onPress={() => router.push(`/ingredient/${ingredient.id}`)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.ingredientTop}>
-                <View style={styles.ingredientLeft}>
-                  <Text style={styles.ingredientName}>
-                    {ingredient.name.charAt(0).toUpperCase() + ingredient.name.slice(1)}
-                  </Text>
-                  <Text style={styles.ingredientCategory}>{ingredient.category}</Text>
-                </View>
-                <View style={[
-                  styles.safetyBadge,
-                  { backgroundColor: `${getSafetyColor(ingredient.safety_level)}15` }
-                ]}>
-                  <Text style={[
-                    styles.safetyBadgeText,
-                    { color: getSafetyColor(ingredient.safety_level) }
+          <Text style={styles.sectionTitle}>Ingredients ({ingredients.length})</Text>
+          {ingredients.map((ingredient) => {
+            const personalFlag = getPersonalFlag(ingredient)
+            return (
+              <TouchableOpacity
+                key={ingredient.id}
+                style={[
+                  styles.ingredientCard,
+                  personalFlag ? styles.ingredientCardFlagged : null,
+                ]}
+                onPress={() => router.push(`/ingredient/${ingredient.id}`)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.ingredientTop}>
+                  <View style={styles.ingredientLeft}>
+                    <Text style={styles.ingredientName}>
+                      {ingredient.name.charAt(0).toUpperCase() + ingredient.name.slice(1)}
+                    </Text>
+                    <Text style={styles.ingredientCategory}>{ingredient.category}</Text>
+                  </View>
+                  <View style={[
+                    styles.safetyBadge,
+                    { backgroundColor: `${getSafetyColor(ingredient.safety_level)}15` }
                   ]}>
-                    {getSafetyLabel(ingredient.safety_level)}
-                  </Text>
+                    <Text style={[
+                      styles.safetyBadgeText,
+                      { color: getSafetyColor(ingredient.safety_level) }
+                    ]}>
+                      {getSafetyLabel(ingredient.safety_level)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.ingredientDesc} numberOfLines={2}>
-                {ingredient.description}
-              </Text>
-              {ingredient.health_concerns?.length > 0 && (
-                <View style={styles.concernsRow}>
-                  <Text style={styles.concernsLabel}>⚠️ </Text>
-                  <Text style={styles.concernsText} numberOfLines={1}>
-                    {ingredient.health_concerns[0]}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.ingredientFooter}>
-                <Text style={styles.viewDetail}>View details →</Text>
-                {Object.values(ingredient.country_status || {}).includes('banned') && (
-                  <View style={styles.bannedChip}>
-                    <Text style={styles.bannedChipText}>🚫 Banned in some countries</Text>
+
+                <Text style={styles.ingredientDesc} numberOfLines={2}>
+                  {ingredient.description}
+                </Text>
+
+                {/* Personal flag banner */}
+                {personalFlag && (
+                  <View style={styles.personalFlagRow}>
+                    <Text style={styles.personalFlagIcon}>👤</Text>
+                    <Text style={styles.personalFlagText}>{personalFlag}</Text>
                   </View>
                 )}
-              </View>
-            </TouchableOpacity>
-          ))}
+
+                {ingredient.health_concerns?.length > 0 && (
+                  <View style={styles.concernsRow}>
+                    <Text style={styles.concernsLabel}>⚠️ </Text>
+                    <Text style={styles.concernsText} numberOfLines={1}>
+                      {ingredient.health_concerns[0]}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.ingredientFooter}>
+                  <Text style={styles.viewDetail}>View details →</Text>
+                  {Object.values(ingredient.country_status || {}).includes('banned') && (
+                    <View style={styles.bannedChip}>
+                      <Text style={styles.bannedChipText}>🚫 Banned somewhere</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            )
+          })}
         </View>
       </ScrollView>
 
@@ -297,10 +403,7 @@ export default function ResultsScreen() {
                 : <Text style={styles.modalButtonText}>Save name</Text>
               }
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => setLabelModal(false)}
-            >
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setLabelModal(false)}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -317,6 +420,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 16,
   },
   loadingText: { fontSize: 14, color: '#555' },
+  errorText: { fontSize: 14, color: '#ff6b6b', textAlign: 'center', paddingHorizontal: 32 },
+  backFallback: {
+    marginTop: 8, backgroundColor: '#111', borderRadius: 10,
+    paddingHorizontal: 24, paddingVertical: 12,
+  },
+  backFallbackText: { fontSize: 14, color: '#00E5A0', fontWeight: '600' },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 100 },
   header: {
@@ -330,17 +439,13 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center',
     justifyContent: 'flex-end', gap: 8, paddingLeft: 16,
   },
-  labelButtonText: {
-    fontSize: 15, fontWeight: '600', color: '#fff',
-    maxWidth: 200,
-  },
+  labelButtonText: { fontSize: 15, fontWeight: '600', color: '#fff', maxWidth: 200 },
   labelButtonIcon: { fontSize: 14 },
   scoreCard: {
     marginHorizontal: 24, backgroundColor: '#111',
     borderRadius: 20, borderWidth: 1, borderColor: '#1a1a1a',
     padding: 24, flexDirection: 'row',
-    alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 16,
+    alignItems: 'center', justifyContent: 'space-between', marginBottom: 16,
   },
   scoreLeft: { gap: 4 },
   scoreTitle: { fontSize: 13, color: '#555', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -362,6 +467,17 @@ const styles = StyleSheet.create({
   statNum: { fontSize: 22, fontWeight: '800' },
   statLbl: { fontSize: 10, color: '#444', textTransform: 'uppercase', letterSpacing: 0.5 },
   statDivider: { width: 1, backgroundColor: '#1a1a1a' },
+  personalAlert: {
+    marginHorizontal: 24, backgroundColor: '#7B61FF15',
+    borderWidth: 1, borderColor: '#7B61FF30',
+    borderRadius: 12, padding: 14,
+    flexDirection: 'row', alignItems: 'center',
+    gap: 10, marginBottom: 12,
+  },
+  personalAlertIcon: { fontSize: 18 },
+  personalAlertContent: { flex: 1 },
+  personalAlertTitle: { fontSize: 13, color: '#7B61FF', fontWeight: '600' },
+  personalAlertSub: { fontSize: 11, color: '#7B61FF80', marginTop: 2 },
   banAlert: {
     marginHorizontal: 24, backgroundColor: '#E24B4A15',
     borderWidth: 1, borderColor: '#E24B4A30',
@@ -378,6 +494,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#1a1a1a',
     padding: 16, marginBottom: 10, gap: 8,
   },
+  ingredientCardFlagged: {
+    borderColor: '#7B61FF40',
+    backgroundColor: '#7B61FF08',
+  },
   ingredientTop: {
     flexDirection: 'row', alignItems: 'flex-start',
     justifyContent: 'space-between', gap: 12,
@@ -388,6 +508,13 @@ const styles = StyleSheet.create({
   safetyBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   safetyBadgeText: { fontSize: 11, fontWeight: '700' },
   ingredientDesc: { fontSize: 13, color: '#555', lineHeight: 20 },
+  personalFlagRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#7B61FF15', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  personalFlagIcon: { fontSize: 12 },
+  personalFlagText: { fontSize: 12, color: '#7B61FF', flex: 1, lineHeight: 16, fontWeight: '500' },
   concernsRow: { flexDirection: 'row', alignItems: 'center' },
   concernsLabel: { fontSize: 12 },
   concernsText: { fontSize: 12, color: '#EF9F27', flex: 1 },
