@@ -9,9 +9,16 @@ import { useRouter, useFocusEffect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useAuthStore } from '@/store'
 import { useScanner, IS_WEB } from '@/hooks/useScanner'
-import { Image, Type, Zap } from 'lucide-react-native'
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
+import { LinearGradient } from 'expo-linear-gradient'
+import {
+  Image as ImageIcon, TextT, Lightning, LightningSlash,
+  Scan, ArrowLeft, Camera
+} from 'phosphor-react-native'
 
 const { width, height } = Dimensions.get('window')
+const FRAME_W = width * 0.86
+const FRAME_H = height * 0.26
 
 export default function ScannerScreen() {
   const router = useRouter()
@@ -89,7 +96,7 @@ export default function ScannerScreen() {
   )
 }
 
-// ── Processing ──
+// ─── Processing screen ────────────────────────────────────────────────────────
 function ProcessingScreen({
   tip, tipIndex, total
 }: {
@@ -99,17 +106,28 @@ function ProcessingScreen({
 }) {
   return (
     <View style={styles.processingContainer}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
+
+      {/* Animated ring */}
       <View style={styles.processingRing}>
-        <ActivityIndicator color="#00E5A0" size="large" />
+        <View style={styles.processingRingInner}>
+          <ActivityIndicator color={Colors.primary} size="large" />
+        </View>
       </View>
-      <Text style={styles.processingTitle}>Analyzing</Text>
+
+      <Text style={styles.processingTitle}>Analysing</Text>
+      <Text style={styles.processingSubtitle}>AI is reading your ingredients</Text>
       <Text style={styles.processingTip}>{tip}</Text>
+
+      {/* Progress dots */}
       <View style={styles.processingDots}>
         {Array.from({ length: total }).map((_, i) => (
           <View
             key={i}
-            style={[styles.dot, { backgroundColor: i === tipIndex ? '#00E5A0' : '#1a1a1a' }]}
+            style={[
+              styles.dot,
+              { backgroundColor: i === tipIndex ? Colors.primary : Colors.border, width: i === tipIndex ? 20 : 6 }
+            ]}
           />
         ))}
       </View>
@@ -117,7 +135,57 @@ function ProcessingScreen({
   )
 }
 
-// ── Manual ──
+// ─── Permission screen ────────────────────────────────────────────────────────
+function PermissionScreen({
+  onGrant, onManual
+}: {
+  onGrant: () => void
+  onManual: () => void
+}) {
+  return (
+    <View style={styles.permissionContainer}>
+      <StatusBar style="dark" />
+
+      <View style={styles.permissionBlob} />
+
+      <View style={[styles.permissionIconBox, Shadows.md]}>
+        <LinearGradient
+          colors={[Colors.primary, Colors.primaryDark]}
+          style={styles.permissionIconGradient}
+        >
+          <Camera size={40} color="#fff" weight="fill" />
+        </LinearGradient>
+      </View>
+
+      <Text style={styles.permissionTitle}>Camera access needed</Text>
+      <Text style={styles.permissionSubtitle}>
+        INGRYN needs camera access to{'\n'}scan ingredient labels.
+      </Text>
+
+      <TouchableOpacity
+        style={[styles.permissionBtn, Shadows.primary]}
+        onPress={onGrant}
+        activeOpacity={0.9}
+      >
+        <LinearGradient
+          colors={[Colors.primary, Colors.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.permissionBtnGradient}
+        >
+          <Text style={styles.permissionBtnText}>Grant camera access</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.permissionSecondary} onPress={onManual}>
+        <TextT size={16} color={Colors.primary} weight="bold" />
+        <Text style={styles.permissionSecondaryText}>Type ingredients manually</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
+
+// ─── Manual entry screen ──────────────────────────────────────────────────────
 function ManualScreen({
   value, onChange, onSubmit, onBack
 }: {
@@ -131,14 +199,16 @@ function ManualScreen({
       style={styles.manualContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
+
       <View style={styles.manualHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
+          <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
         </TouchableOpacity>
         <Text style={styles.manualTitle}>Type ingredients</Text>
         <View style={{ width: 40 }} />
       </View>
+
       <ScrollView
         style={styles.manualScroll}
         contentContainerStyle={styles.manualContent}
@@ -148,59 +218,45 @@ function ManualScreen({
         <Text style={styles.manualSubtitle}>
           Paste or type the full ingredients list from the label
         </Text>
+
         <TextInput
           style={styles.manualInput}
           value={value}
           onChangeText={onChange}
           placeholder="Water, Sugar, Salt, Sodium Benzoate, Yellow 5..."
-          placeholderTextColor="#2a2a2a"
+          placeholderTextColor={Colors.textTertiary}
           multiline
           numberOfLines={8}
           autoFocus
           textAlignVertical="top"
         />
+
         <Text style={styles.manualHint}>Comma-separated works best</Text>
+
         <TouchableOpacity
-          style={[styles.analyzeBtn, !value.trim() && styles.analyzeBtnDisabled]}
+          style={[styles.analyzeBtn, !value.trim() && styles.analyzeBtnDisabled, Shadows.primary]}
           onPress={onSubmit}
           disabled={!value.trim()}
           activeOpacity={0.85}
         >
-          <Text style={styles.analyzeBtnText}>Analyze ingredients</Text>
+          <LinearGradient
+            colors={value.trim() ? [Colors.primary, Colors.primaryDark] : [Colors.border, Colors.border]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.analyzeBtnGradient}
+          >
+            <Scan size={18} color={value.trim() ? '#fff' : Colors.textTertiary} weight="bold" />
+            <Text style={[styles.analyzeBtnText, !value.trim() && styles.analyzeBtnTextDisabled]}>
+              Analyse ingredients
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   )
 }
 
-// ── Permission ──
-function PermissionScreen({
-  onGrant, onManual
-}: {
-  onGrant: () => void
-  onManual: () => void
-}) {
-  return (
-    <View style={styles.permissionContainer}>
-      <StatusBar style="light" />
-      <View style={styles.permissionIconBox}>
-        <Text style={styles.permissionIconText}>📷</Text>
-      </View>
-      <Text style={styles.permissionTitle}>Camera access needed</Text>
-      <Text style={styles.permissionSubtitle}>
-        INGRYN needs camera access to scan ingredient labels.
-      </Text>
-      <TouchableOpacity style={styles.permissionBtn} onPress={onGrant}>
-        <Text style={styles.permissionBtnText}>Grant access</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.permissionSecondary} onPress={onManual}>
-        <Text style={styles.permissionSecondaryText}>Type ingredients manually</Text>
-      </TouchableOpacity>
-    </View>
-  )
-}
-
-// ── Camera ──
+// ─── Camera screen (stays dark — correct for camera UX) ──────────────────────
 function CameraScreen({
   cameraRef, cameraActive, cameraReady, onCameraReady,
   flash, onFlashToggle, onCapture, onGallery, onManual
@@ -222,13 +278,14 @@ function CameraScreen({
       {cameraActive && (
         <CameraView
           ref={cameraRef}
-          style={styles.camera}
+          style={StyleSheet.absoluteFill}
           facing="back"
           flash={flash ? 'on' : 'off'}
           onCameraReady={onCameraReady}
         />
       )}
 
+      {/* Top overlay */}
       <View style={styles.topFade}>
         <View style={styles.topBar}>
           <Text style={styles.topBarBrand}>INGRYN</Text>
@@ -236,14 +293,18 @@ function CameraScreen({
             style={[styles.flashBtn, flash && styles.flashBtnActive]}
             onPress={onFlashToggle}
           >
-            <Zap stroke={flash ? '#080808' : '#fff'} width={18} height={18} />
+            {flash
+              ? <LightningSlash size={18} color="#080808" weight="fill" />
+              : <Lightning size={18} color="#fff" weight="bold" />
+            }
           </TouchableOpacity>
         </View>
         <Text style={styles.topInstruction}>
-          {cameraReady ? 'Point at ingredient list' : 'Initializing camera...'}
+          {cameraReady ? 'Point at ingredient list' : 'Initialising camera...'}
         </Text>
       </View>
 
+      {/* Scan frame */}
       <View style={styles.frameWrapper}>
         <View style={styles.frame}>
           <View style={[styles.corner, styles.tl]} />
@@ -254,19 +315,18 @@ function CameraScreen({
         </View>
       </View>
 
+      {/* Bottom overlay */}
       <View style={styles.bottomFade}>
         <View style={styles.secondaryRow}>
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={onGallery}
-            activeOpacity={0.8}
-          >
-            <View style={styles.secondaryBtnInner}>
-              <Image stroke="#fff" width={20} height={20} />
+          {/* Gallery */}
+          <TouchableOpacity style={styles.sideBtn} onPress={onGallery} activeOpacity={0.8}>
+            <View style={styles.sideBtnInner}>
+              <ImageIcon size={22} color="#fff" weight="regular" />
             </View>
-            <Text style={styles.secondaryBtnLabel}>Gallery</Text>
+            <Text style={styles.sideBtnLabel}>Gallery</Text>
           </TouchableOpacity>
 
+          {/* Capture */}
           <TouchableOpacity
             style={[styles.captureBtn, !cameraReady && { opacity: 0.4 }]}
             onPress={onCapture}
@@ -278,155 +338,368 @@ function CameraScreen({
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={onManual}
-            activeOpacity={0.8}
-          >
-            <View style={styles.secondaryBtnInner}>
-              <Type stroke="#fff" width={20} height={20} />
+          {/* Manual */}
+          <TouchableOpacity style={styles.sideBtn} onPress={onManual} activeOpacity={0.8}>
+            <View style={styles.sideBtnInner}>
+              <TextT size={22} color="#fff" weight="regular" />
             </View>
-            <Text style={styles.secondaryBtnLabel}>Manual</Text>
+            <Text style={styles.sideBtnLabel}>Manual</Text>
           </TouchableOpacity>
         </View>
 
         <Text style={styles.bottomHint}>
-          {cameraReady ? 'Tap to capture' : 'Please wait...'}
+          {cameraReady ? 'Tap the button to capture' : 'Please wait...'}
         </Text>
       </View>
     </View>
   )
 }
 
-// ── Styles ──
-const FRAME_W = width * 0.86
-const FRAME_H = height * 0.26
-
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+
+  // Processing
   processingContainer: {
-    flex: 1, backgroundColor: '#080808',
-    alignItems: 'center', justifyContent: 'center',
-    gap: 14, paddingHorizontal: 40,
+    flex: 1,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.lg,
+    paddingHorizontal: Spacing['3xl'],
   },
   processingRing: {
-    width: 88, height: 88, borderRadius: 44,
-    backgroundColor: '#00E5A008', borderWidth: 1,
-    borderColor: '#00E5A020', alignItems: 'center',
-    justifyContent: 'center', marginBottom: 12,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 2,
+    borderColor: `${Colors.primary}30`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
   },
-  processingTitle: { fontSize: 26, fontWeight: '700', color: '#fff', letterSpacing: -0.5 },
-  processingTip: { fontSize: 14, color: '#444', textAlign: 'center', lineHeight: 22 },
-  processingDots: { flexDirection: 'row', gap: 6, marginTop: 4 },
-  dot: { width: 5, height: 5, borderRadius: 3 },
+  processingRingInner: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.sm,
+  },
+  processingTitle: {
+    fontFamily: Fonts.extrabold,
+    fontSize: FontSizes['4xl'],
+    color: Colors.textPrimary,
+  },
+  processingSubtitle: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.base,
+    color: Colors.textSecondary,
+    marginTop: -Spacing.sm,
+  },
+  processingTip: {
+    fontFamily: Fonts.medium,
+    fontSize: FontSizes.base,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginTop: Spacing.md,
+  },
+  processingDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.md,
+  },
+  dot: {
+    height: 6,
+    borderRadius: 3,
+  },
 
+  // Permission
   permissionContainer: {
-    flex: 1, backgroundColor: '#080808',
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40,
+    flex: 1,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing['3xl'],
+    gap: Spacing.lg,
+  },
+  permissionBlob: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: `${Colors.primary}10`,
+    top: -100,
+    right: -80,
   },
   permissionIconBox: {
-    width: 80, height: 80, borderRadius: 20,
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#1a1a1a',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+    borderRadius: 32,
+    overflow: 'hidden',
+    marginBottom: Spacing.md,
   },
-  permissionIconText: { fontSize: 36 },
+  permissionIconGradient: {
+    width: 96,
+    height: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   permissionTitle: {
-    fontSize: 24, fontWeight: '700', color: '#fff',
-    textAlign: 'center', marginBottom: 12,
+    fontFamily: Fonts.extrabold,
+    fontSize: FontSizes['3xl'],
+    color: Colors.textPrimary,
+    textAlign: 'center',
   },
   permissionSubtitle: {
-    fontSize: 15, color: '#555', textAlign: 'center',
-    lineHeight: 24, marginBottom: 32,
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.base,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   permissionBtn: {
-    backgroundColor: '#00E5A0', borderRadius: 14,
-    paddingVertical: 16, paddingHorizontal: 40, marginBottom: 16,
+    width: '100%',
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
+    marginTop: Spacing.md,
   },
-  permissionBtnText: { fontSize: 16, fontWeight: '700', color: '#080808' },
-  permissionSecondary: { paddingVertical: 12 },
-  permissionSecondaryText: { fontSize: 14, color: '#555' },
+  permissionBtnGradient: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+  },
+  permissionBtnText: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.lg,
+    color: '#fff',
+  },
+  permissionSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: Spacing.md,
+  },
+  permissionSecondaryText: {
+    fontFamily: Fonts.semibold,
+    fontSize: FontSizes.base,
+    color: Colors.primary,
+  },
 
-  manualContainer: { flex: 1, backgroundColor: '#080808' },
+  // Manual
+  manualContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   manualHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: 24, marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 60 : 48,
+    paddingHorizontal: Spacing['2xl'],
+    marginBottom: Spacing.md,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 24, color: '#fff' },
-  manualTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.sm,
+  },
+  manualTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.xl,
+    color: Colors.textPrimary,
+  },
   manualScroll: { flex: 1 },
-  manualContent: { paddingHorizontal: 24, paddingBottom: 48, paddingTop: 16 },
-  manualSubtitle: { fontSize: 15, color: '#444', lineHeight: 24, marginBottom: 20 },
+  manualContent: {
+    paddingHorizontal: Spacing['2xl'],
+    paddingBottom: 48,
+    paddingTop: Spacing.md,
+  },
+  manualSubtitle: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.base,
+    color: Colors.textSecondary,
+    lineHeight: 24,
+    marginBottom: Spacing.xl,
+  },
   manualInput: {
-    backgroundColor: '#0f0f0f', borderWidth: 1, borderColor: '#1a1a1a',
-    borderRadius: 16, paddingHorizontal: 18, paddingVertical: 18,
-    fontSize: 15, color: '#fff', minHeight: 190, marginBottom: 10, lineHeight: 24,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.base,
+    color: Colors.textPrimary,
+    minHeight: 180,
+    marginBottom: Spacing.sm,
+    lineHeight: 24,
+    ...Shadows.sm,
   },
-  manualHint: { fontSize: 12, color: '#2a2a2a', marginBottom: 28 },
+  manualHint: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.xs,
+    color: Colors.textTertiary,
+    marginBottom: Spacing['2xl'],
+  },
   analyzeBtn: {
-    backgroundColor: '#00E5A0', borderRadius: 14,
-    paddingVertical: 18, alignItems: 'center',
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
   },
-  analyzeBtnDisabled: { opacity: 0.35 },
-  analyzeBtnText: { fontSize: 16, fontWeight: '700', color: '#080808', letterSpacing: 0.3 },
+  analyzeBtnDisabled: {
+    opacity: 0.5,
+  },
+  analyzeBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.xl,
+  },
+  analyzeBtnText: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.lg,
+    color: '#fff',
+  },
+  analyzeBtnTextDisabled: {
+    color: Colors.textTertiary,
+  },
 
-  cameraContainer: { flex: 1, backgroundColor: '#000' },
-  camera: StyleSheet.absoluteFill,
+  // Camera (dark — intentional)
+  cameraContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
   topFade: {
-    position: 'absolute', top: 0, left: 0, right: 0,
-    paddingTop: 56, paddingBottom: 24, paddingHorizontal: 24,
-    backgroundColor: 'rgba(0,0,0,0.55)', gap: 6,
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    paddingTop: 56,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    gap: 6,
   },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  topBarBrand: { fontSize: 15, fontWeight: '800', color: '#00E5A0', letterSpacing: 4 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  topBarBrand: {
+    fontFamily: Fonts.extrabold,
+    fontSize: FontSizes.base,
+    color: Colors.primary,
+    letterSpacing: 4,
+  },
   flashBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  flashBtnActive: { backgroundColor: '#00E5A0', borderColor: '#00E5A0' },
+  flashBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
   topInstruction: {
-    fontSize: 13, color: 'rgba(255,255,255,0.45)',
-    fontWeight: '400', letterSpacing: 0.3,
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.sm,
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 0.3,
   },
-  frameWrapper: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  frame: { width: FRAME_W, height: FRAME_H, alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 22, height: 22, borderColor: '#00E5A0' },
+  frameWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  frame: {
+    width: FRAME_W,
+    height: FRAME_H,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  corner: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderColor: Colors.primary,
+  },
   tl: { top: 0, left: 0, borderTopWidth: 2.5, borderLeftWidth: 2.5, borderTopLeftRadius: 5 },
   tr: { top: 0, right: 0, borderTopWidth: 2.5, borderRightWidth: 2.5, borderTopRightRadius: 5 },
   bl: { bottom: 0, left: 0, borderBottomWidth: 2.5, borderLeftWidth: 2.5, borderBottomLeftRadius: 5 },
   br: { bottom: 0, right: 0, borderBottomWidth: 2.5, borderRightWidth: 2.5, borderBottomRightRadius: 5 },
-  scanLine: { width: FRAME_W - 40, height: 1.5, backgroundColor: '#00E5A040' },
+  scanLine: {
+    width: FRAME_W - 40,
+    height: 1.5,
+    backgroundColor: `${Colors.primary}40`,
+  },
   bottomFade: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingBottom: 52, paddingTop: 28,
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    paddingBottom: 52,
+    paddingTop: 28,
     backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center', gap: 16,
+    alignItems: 'center',
+    gap: 16,
   },
   secondaryRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 40,
   },
-  secondaryBtn: { alignItems: 'center', gap: 8 },
-  secondaryBtnInner: {
-    width: 52, height: 52, borderRadius: 26,
+  sideBtn: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  sideBtnInner: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  secondaryBtnLabel: {
-    fontSize: 11, color: 'rgba(255,255,255,0.5)',
-    fontWeight: '500', letterSpacing: 0.3,
+  sideBtnLabel: {
+    fontFamily: Fonts.medium,
+    fontSize: FontSizes.xs,
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 0.3,
   },
-  captureBtn: { alignItems: 'center', justifyContent: 'center' },
+  captureBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   captureOuter: {
-    width: 82, height: 82, borderRadius: 41,
-    borderWidth: 3, borderColor: '#00E5A0',
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(0,229,160,0.08)',
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 3,
+    borderColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${Colors.primary}12`,
   },
-  captureInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: '#00E5A0' },
+  captureInner: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: Colors.primary,
+  },
   bottomHint: {
-    fontSize: 12, color: 'rgba(255,255,255,0.25)', letterSpacing: 0.3,
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.xs,
+    color: 'rgba(255,255,255,0.25)',
+    letterSpacing: 0.3,
   },
 })

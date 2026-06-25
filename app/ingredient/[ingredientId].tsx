@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator, Alert
+  ScrollView, ActivityIndicator, Platform
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { supabase } from '@/lib/supabase'
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
+import { LinearGradient } from 'expo-linear-gradient'
+import {
+  ArrowLeft, CheckCircle, Warning, ShieldWarning,
+  Question, Globe, Tag, BookOpen, Info
+} from 'phosphor-react-native'
 
 type Ingredient = {
   id: string
@@ -31,18 +37,41 @@ const COUNTRIES: Record<string, { flag: string; label: string }> = {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  permitted:              { label: 'Permitted',         color: '#00E5A0', bg: '#00E5A015' },
-  permitted_with_limits:  { label: 'Limited use',       color: '#EF9F27', bg: '#EF9F2715' },
-  banned:                 { label: 'Banned',            color: '#E24B4A', bg: '#E24B4A15' },
-  under_review:           { label: 'Under review',      color: '#8B8BFF', bg: '#8B8BFF15' },
-  no_data:                { label: 'No data',           color: '#444',    bg: '#1a1a1a' },
+  permitted:             { label: 'Permitted',    color: Colors.safe,          bg: Colors.safeLight },
+  permitted_with_limits: { label: 'Limited use',  color: Colors.caution,       bg: Colors.cautionLight },
+  banned:                { label: 'Banned',       color: Colors.harmful,       bg: Colors.harmfulLight },
+  under_review:          { label: 'Under review', color: Colors.personal,      bg: Colors.personalLight },
+  no_data:               { label: 'No data',      color: Colors.textTertiary,  bg: Colors.surfaceSecondary },
 }
 
-const SAFETY_CONFIG: Record<string, { label: string; color: string; bg: string; desc: string }> = {
-  safe:    { label: 'Safe',    color: '#00E5A0', bg: '#00E5A015', desc: 'Generally recognized as safe by major health authorities.' },
-  caution: { label: 'Caution', color: '#EF9F27', bg: '#EF9F2715', desc: 'May cause issues for some people. Use in moderation.' },
-  harmful: { label: 'Harmful', color: '#E24B4A', bg: '#E24B4A15', desc: 'Linked to health concerns. Avoid where possible.' },
-  unknown: { label: 'Unknown', color: '#555',    bg: '#1a1a1a',   desc: 'Insufficient data to determine safety level.' },
+const SAFETY_CONFIG: Record<string, {
+  label: string; color: string; bg: string
+  gradientColors: [string, string]; icon: any; desc: string
+}> = {
+  safe: {
+    label: 'Safe', color: Colors.safe, bg: Colors.safeLight,
+    gradientColors: [Colors.safe, Colors.primaryDark],
+    icon: CheckCircle,
+    desc: 'Generally recognised as safe by major health authorities.',
+  },
+  caution: {
+    label: 'Caution', color: Colors.caution, bg: Colors.cautionLight,
+    gradientColors: ['#F59E0B', '#D97706'],
+    icon: Warning,
+    desc: 'May cause issues for some people. Use in moderation.',
+  },
+  harmful: {
+    label: 'Harmful', color: Colors.harmful, bg: Colors.harmfulLight,
+    gradientColors: [Colors.harmful, '#DC2626'],
+    icon: ShieldWarning,
+    desc: 'Linked to health concerns. Avoid where possible.',
+  },
+  unknown: {
+    label: 'Unknown', color: Colors.unknown, bg: Colors.unknownLight,
+    gradientColors: [Colors.textTertiary, Colors.textSecondary],
+    icon: Question,
+    desc: 'Insufficient data to determine safety level.',
+  },
 }
 
 export default function IngredientDetailScreen() {
@@ -51,21 +80,15 @@ export default function IngredientDetailScreen() {
   const [ingredient, setIngredient] = useState<Ingredient | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchIngredient()
-  }, [ingredientId])
+  useEffect(() => { fetchIngredient() }, [ingredientId])
 
   async function fetchIngredient() {
     try {
       const { data, error } = await supabase
-        .from('ingredients')
-        .select('*')
-        .eq('id', ingredientId)
-        .single()
+        .from('ingredients').select('*').eq('id', ingredientId).single()
       if (error) throw error
       setIngredient(data)
     } catch (e: any) {
-      Alert.alert('Error', e.message)
       router.back()
     } finally {
       setLoading(false)
@@ -74,8 +97,8 @@ export default function IngredientDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#00E5A0" size="large" />
+      <View style={styles.centered}>
+        <ActivityIndicator color={Colors.primary} size="large" />
       </View>
     )
   }
@@ -83,32 +106,30 @@ export default function IngredientDetailScreen() {
   if (!ingredient) return null
 
   const safety = SAFETY_CONFIG[ingredient.safety_level] || SAFETY_CONFIG.unknown
+  const SafetyIcon = safety.icon
   const bannedIn = Object.entries(ingredient.country_status || {}).filter(([, v]) => v === 'banned')
   const restrictedIn = Object.entries(ingredient.country_status || {}).filter(([, v]) => v === 'permitted_with_limits')
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
-      <View style={styles.bgCircle} />
+      <StatusBar style="dark" />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backText}>←</Text>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, Shadows.sm]}>
+            <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
           </TouchableOpacity>
-          <View style={styles.headerRight}>
-            <Text style={styles.categoryChip}>{ingredient.category}</Text>
+          <View style={[styles.categoryChip, { backgroundColor: Colors.primaryLight }]}>
+            <Tag size={12} color={Colors.primary} weight="fill" />
+            <Text style={styles.categoryChipText}>{ingredient.category}</Text>
           </View>
         </View>
 
         {/* Title */}
         <View style={styles.titleSection}>
-          <Text style={styles.name}>
+          <Text style={styles.ingredientName}>
             {ingredient.name.charAt(0).toUpperCase() + ingredient.name.slice(1)}
           </Text>
           {ingredient.aliases?.length > 0 && (
@@ -119,28 +140,33 @@ export default function IngredientDetailScreen() {
         </View>
 
         {/* Safety card */}
-        <View style={[styles.safetyCard, { borderColor: safety.color + '30', backgroundColor: safety.bg }]}>
-          <View style={styles.safetyLeft}>
-            <Text style={[styles.safetyLabel, { color: safety.color }]}>{safety.label}</Text>
-            <Text style={styles.safetyDesc}>{safety.desc}</Text>
-          </View>
-          <View style={[styles.safetyBadge, { backgroundColor: safety.color }]}>
-            <Text style={styles.safetyBadgeText}>
-              {ingredient.safety_level === 'safe' ? '✓' :
-               ingredient.safety_level === 'harmful' ? '✕' :
-               ingredient.safety_level === 'caution' ? '!' : '?'}
-            </Text>
-          </View>
+        <View style={styles.safetyCardWrapper}>
+          <LinearGradient
+            colors={safety.gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.safetyCard}
+          >
+            <View style={styles.safetyCardLeft}>
+              <View style={styles.safetyIconBox}>
+                <SafetyIcon size={28} color="#fff" weight="fill" />
+              </View>
+              <View style={styles.safetyTextBox}>
+                <Text style={styles.safetyLabel}>{safety.label}</Text>
+                <Text style={styles.safetyDesc}>{safety.desc}</Text>
+              </View>
+            </View>
+          </LinearGradient>
         </View>
 
-        {/* Quick stats */}
+        {/* Quick stats — banned/restricted count */}
         {(bannedIn.length > 0 || restrictedIn.length > 0) && (
-          <View style={styles.quickStats}>
+          <View style={[styles.quickStats, Shadows.sm]}>
             {bannedIn.length > 0 && (
-              <View style={styles.quickStat}>
-                <Text style={[styles.quickStatNum, { color: '#E24B4A' }]}>{bannedIn.length}</Text>
+              <View style={styles.quickStatItem}>
+                <Text style={[styles.quickStatNum, { color: Colors.harmful }]}>{bannedIn.length}</Text>
                 <Text style={styles.quickStatLabel}>
-                  {bannedIn.length === 1 ? 'country' : 'countries'}{'\n'}banned
+                  {bannedIn.length === 1 ? 'Country' : 'Countries'} banned
                 </Text>
               </View>
             )}
@@ -148,20 +174,23 @@ export default function IngredientDetailScreen() {
               <View style={styles.quickStatDivider} />
             )}
             {restrictedIn.length > 0 && (
-              <View style={styles.quickStat}>
-                <Text style={[styles.quickStatNum, { color: '#EF9F27' }]}>{restrictedIn.length}</Text>
+              <View style={styles.quickStatItem}>
+                <Text style={[styles.quickStatNum, { color: Colors.caution }]}>{restrictedIn.length}</Text>
                 <Text style={styles.quickStatLabel}>
-                  {restrictedIn.length === 1 ? 'country' : 'countries'}{'\n'}restricted
+                  {restrictedIn.length === 1 ? 'Country' : 'Countries'} restricted
                 </Text>
               </View>
             )}
           </View>
         )}
 
-        {/* Description */}
+        {/* About */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <BookOpen size={16} color={Colors.primary} weight="fill" />
+            <Text style={styles.sectionTitle}>About</Text>
+          </View>
+          <View style={[styles.sectionCard, Shadows.sm]}>
             <Text style={styles.description}>{ingredient.description}</Text>
           </View>
         </View>
@@ -169,11 +198,14 @@ export default function IngredientDetailScreen() {
         {/* Health concerns */}
         {ingredient.health_concerns?.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Health concerns</Text>
-            <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <Warning size={16} color={Colors.caution} weight="fill" />
+              <Text style={styles.sectionTitle}>Health concerns</Text>
+            </View>
+            <View style={[styles.sectionCard, Shadows.sm]}>
               {ingredient.health_concerns.map((concern, i) => (
-                <View key={i} style={styles.concernRow}>
-                  <View style={styles.concernDot} />
+                <View key={i} style={[styles.concernRow, i > 0 && styles.concernBorder]}>
+                  <View style={[styles.concernDot, { backgroundColor: Colors.caution }]} />
                   <Text style={styles.concernText}>{concern}</Text>
                 </View>
               ))}
@@ -183,8 +215,11 @@ export default function IngredientDetailScreen() {
 
         {/* Country status */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Regulatory status by country</Text>
-          <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Globe size={16} color={Colors.info} weight="fill" />
+            <Text style={styles.sectionTitle}>Regulatory status</Text>
+          </View>
+          <View style={[styles.sectionCard, Shadows.sm]}>
             {Object.entries(COUNTRIES).map(([code, { flag, label }], i) => {
               const status = ingredient.country_status?.[code] || 'no_data'
               const config = STATUS_CONFIG[status] || STATUS_CONFIG.no_data
@@ -209,10 +244,13 @@ export default function IngredientDetailScreen() {
         {/* Aliases */}
         {ingredient.aliases?.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>All names & codes</Text>
-            <View style={styles.aliasesGrid}>
+            <View style={styles.sectionHeader}>
+              <Info size={16} color={Colors.textTertiary} weight="fill" />
+              <Text style={styles.sectionTitle}>All names & codes</Text>
+            </View>
+            <View style={styles.aliasGrid}>
               {ingredient.aliases.map((alias, i) => (
-                <View key={i} style={styles.aliasChip}>
+                <View key={i} style={[styles.aliasChip, Shadows.sm]}>
                   <Text style={styles.aliasChipText}>{alias}</Text>
                 </View>
               ))}
@@ -229,87 +267,58 @@ export default function IngredientDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#080808' },
-  loading: { flex: 1, backgroundColor: '#080808', alignItems: 'center', justifyContent: 'center' },
-  bgCircle: {
-    position: 'absolute', width: 300, height: 300, borderRadius: 150,
-    backgroundColor: '#00E5A006', top: -80, right: -80,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 80 },
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: 24, marginBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 24, color: '#fff' },
-  headerRight: { alignItems: 'flex-end' },
-  categoryChip: {
-    fontSize: 12, color: '#00E5A0', fontWeight: '600',
-    backgroundColor: '#00E5A015', paddingHorizontal: 12,
-    paddingVertical: 6, borderRadius: 20,
-    borderWidth: 1, borderColor: '#00E5A025',
-    textTransform: 'uppercase', letterSpacing: 0.5,
-  },
-  titleSection: { paddingHorizontal: 24, marginBottom: 20, gap: 8 },
-  name: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: -0.5, lineHeight: 36 },
-  aliases: { fontSize: 13, color: '#444', lineHeight: 20 },
-  safetyCard: {
-    marginHorizontal: 24, borderRadius: 16, borderWidth: 1,
-    padding: 18, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', gap: 16, marginBottom: 16,
-  },
-  safetyLeft: { flex: 1, gap: 6 },
-  safetyLabel: { fontSize: 18, fontWeight: '700' },
-  safetyDesc: { fontSize: 13, color: '#666', lineHeight: 20 },
-  safetyBadge: {
-    width: 44, height: 44, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  safetyBadgeText: { fontSize: 20, fontWeight: '800', color: '#080808' },
-  quickStats: {
-    marginHorizontal: 24, backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1a1a1a',
-    flexDirection: 'row', paddingVertical: 16, marginBottom: 16,
-  },
-  quickStat: { flex: 1, alignItems: 'center', gap: 4 },
-  quickStatNum: { fontSize: 28, fontWeight: '800' },
-  quickStatLabel: { fontSize: 11, color: '#444', textAlign: 'center', lineHeight: 16 },
-  quickStatDivider: { width: 1, backgroundColor: '#1a1a1a' },
-  section: { paddingHorizontal: 24, marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 12 },
-  sectionCard: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1a1a1a', overflow: 'hidden',
-  },
-  description: { fontSize: 15, color: '#888', lineHeight: 26, padding: 18 },
-  concernRow: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    gap: 12, paddingHorizontal: 18, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
-  },
-  concernDot: {
-    width: 6, height: 6, borderRadius: 3,
-    backgroundColor: '#EF9F27', marginTop: 7,
-  },
-  concernText: { flex: 1, fontSize: 14, color: '#888', lineHeight: 22 },
-  countryRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14, gap: 12,
-  },
-  countryDivider: { height: 1, backgroundColor: '#1a1a1a', marginLeft: 52 },
+  backBtn: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
+  categoryChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: Radius.full },
+  categoryChipText: { fontFamily: Fonts.semibold, fontSize: FontSizes.xs, color: Colors.primary, textTransform: 'uppercase', letterSpacing: 0.4 },
+
+  titleSection: { paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl, gap: 8 },
+  ingredientName: { fontFamily: Fonts.extrabold, fontSize: FontSizes['5xl'], color: Colors.textPrimary, letterSpacing: -0.5, lineHeight: 40 },
+  aliases: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: Colors.textTertiary, lineHeight: 20 },
+
+  safetyCardWrapper: { marginHorizontal: Spacing['2xl'], marginBottom: Spacing.lg, borderRadius: Radius['2xl'], overflow: 'hidden', ...Shadows.lg },
+  safetyCard: { borderRadius: Radius['2xl'], padding: Spacing['2xl'] },
+  safetyCardLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg },
+  safetyIconBox: { width: 60, height: 60, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  safetyTextBox: { flex: 1, gap: 6 },
+  safetyLabel: { fontFamily: Fonts.extrabold, fontSize: FontSizes['2xl'], color: '#fff' },
+  safetyDesc: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: 'rgba(255,255,255,0.8)', lineHeight: 18 },
+
+  quickStats: { flexDirection: 'row', marginHorizontal: Spacing['2xl'], backgroundColor: Colors.surface, borderRadius: Radius.xl, paddingVertical: Spacing.xl, marginBottom: Spacing.xl },
+  quickStatItem: { flex: 1, alignItems: 'center', gap: 4 },
+  quickStatNum: { fontFamily: Fonts.extrabold, fontSize: FontSizes['4xl'] },
+  quickStatLabel: { fontFamily: Fonts.medium, fontSize: FontSizes.xs, color: Colors.textTertiary, textAlign: 'center', lineHeight: 16 },
+  quickStatDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
+
+  section: { paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.md },
+  sectionTitle: { fontFamily: Fonts.bold, fontSize: FontSizes.lg, color: Colors.textPrimary },
+  sectionCard: { backgroundColor: Colors.surface, borderRadius: Radius.xl, overflow: 'hidden' },
+  description: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary, lineHeight: 26, padding: Spacing.xl },
+
+  concernRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md },
+  concernBorder: { borderTopWidth: 1, borderTopColor: Colors.borderSubtle },
+  concernDot: { width: 6, height: 6, borderRadius: 3, marginTop: 7 },
+  concernText: { flex: 1, fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: Colors.textSecondary, lineHeight: 22 },
+
+  countryRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: 12 },
+  countryDivider: { height: 1, backgroundColor: Colors.borderSubtle, marginLeft: 54 },
   countryFlag: { fontSize: 22, width: 30 },
-  countryLabel: { flex: 1, fontSize: 14, color: '#ccc', fontWeight: '400' },
-  statusChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  statusChipText: { fontSize: 12, fontWeight: '600' },
-  aliasesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  aliasChip: {
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#1a1a1a',
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
-  },
-  aliasChipText: { fontSize: 13, color: '#555' },
-  disclaimer: {
-    fontSize: 11, color: '#2a2a2a', textAlign: 'center',
-    paddingHorizontal: 24, lineHeight: 18, marginBottom: 8,
-  },
+  countryLabel: { flex: 1, fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: Colors.textPrimary },
+  statusChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: Radius.md },
+  statusChipText: { fontFamily: Fonts.semibold, fontSize: FontSizes.xs },
+
+  aliasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  aliasChip: { backgroundColor: Colors.surface, paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.lg },
+  aliasChipText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.textSecondary },
+
+  disclaimer: { fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.textTertiary, textAlign: 'center', paddingHorizontal: Spacing['2xl'], lineHeight: 18, marginBottom: 8 },
 })

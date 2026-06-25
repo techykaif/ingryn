@@ -51,13 +51,16 @@ export function useDietaryPreferences() {
     try {
       const { error } = await supabase
         .from('dietary_preferences')
-        .upsert({
-          user_id: user?.id,
-          conditions: prefs.conditions,
-          allergies: prefs.allergies,
-          diet_type: prefs.diet_type,
-          updated_at: new Date().toISOString(),
-        })
+        .upsert(
+          {
+            user_id: user?.id,
+            conditions: prefs.conditions,
+            allergies: prefs.allergies,
+            diet_type: prefs.diet_type,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' } // ← tells Supabase to UPDATE if user_id already exists
+        )
 
       if (error) throw error
       setPreferences(prefs)

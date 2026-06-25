@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator, TextInput, Modal
+  ScrollView, ActivityIndicator, TextInput, Modal, Platform
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '@/lib/supabase'
 import { useDietaryPreferences } from '@/hooks/useDietaryPreferences'
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
+import {
+  ArrowLeft, PencilSimple, Warning, CheckCircle,
+  ShieldWarning, Globe, User, ArrowRight, X
+} from 'phosphor-react-native'
 
 type Ingredient = {
   id: string
@@ -20,7 +26,7 @@ type Ingredient = {
   personal_flag?: string | null
 }
 
-type Scan = {
+type ScanData = {
   id: string
   label: string | null
   safety_score: number
@@ -34,7 +40,7 @@ export default function ResultsScreen() {
   const router = useRouter()
   const { preferences } = useDietaryPreferences()
 
-  const [scan, setScan] = useState<Scan | null>(null)
+  const [scan, setScan] = useState<ScanData | null>(null)
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
@@ -42,35 +48,25 @@ export default function ResultsScreen() {
   const [labelText, setLabelText] = useState('')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    fetchResults()
-  }, [scanId])
+  useEffect(() => { fetchResults() }, [scanId])
 
   async function fetchResults() {
     try {
       const { data: scanData, error: scanError } = await supabase
-        .from('scans')
-        .select('*')
-        .eq('id', scanId)
-        .single()
-
+        .from('scans').select('*').eq('id', scanId).single()
       if (scanError) throw scanError
       setScan(scanData)
       setLabelText(scanData.label || '')
 
       if (scanData.ingredient_ids?.length > 0) {
-        const { data: ingredientData, error: ingredientError } = await supabase
-          .from('ingredients')
-          .select('*')
-          .in('id', scanData.ingredient_ids)
-
-        if (ingredientError) throw ingredientError
-
-        const sorted = (ingredientData || []).sort((a, b) => {
-          const order = { harmful: 0, caution: 1, unknown: 2, safe: 3 }
-          return (order[a.safety_level as keyof typeof order] ?? 2) -
-                 (order[b.safety_level as keyof typeof order] ?? 2)
-        })
+        const { data: ingredientData, error } = await supabase
+          .from('ingredients').select('*').in('id', scanData.ingredient_ids)
+        if (error) throw error
+        const order = { harmful: 0, caution: 1, unknown: 2, safe: 3 }
+        const sorted = (ingredientData || []).sort((a, b) =>
+          (order[a.safety_level as keyof typeof order] ?? 2) -
+          (order[b.safety_level as keyof typeof order] ?? 2)
+        )
         setIngredients(sorted)
       }
     } catch (e: any) {
@@ -84,9 +80,7 @@ export default function ResultsScreen() {
     if (!labelText.trim()) return
     setSaving(true)
     const { error } = await supabase
-      .from('scans')
-      .update({ label: labelText.trim() })
-      .eq('id', scanId)
+      .from('scans').update({ label: labelText.trim() }).eq('id', scanId)
     setSaving(false)
     if (!error) {
       setScan(prev => prev ? { ...prev, label: labelText.trim() } : prev)
@@ -94,7 +88,6 @@ export default function ResultsScreen() {
     }
   }
 
-  // ─── Dietary flag helpers ─────────────────────────────────────────
   const hasPreferences =
     preferences.conditions.length > 0 ||
     preferences.allergies.length > 0 ||
@@ -102,16 +95,10 @@ export default function ResultsScreen() {
 
   function getPersonalFlag(ingredient: Ingredient): string | null {
     if (!hasPreferences) return null
-
-    // Use AI-generated personal_flag if present
     if (ingredient.personal_flag) return ingredient.personal_flag
 
-    // Fallback: local check against allergen keywords in name/aliases
-    const haystack = [
-      ingredient.name,
-      ...(ingredient.aliases || []),
-      ingredient.category,
-    ].join(' ').toLowerCase()
+    const haystack = [ingredient.name, ...(ingredient.aliases || []), ingredient.category]
+      .join(' ').toLowerCase()
 
     const allergyKeywords: Record<string, string[]> = {
       gluten: ['gluten', 'wheat', 'barley', 'rye', 'malt'],
@@ -125,16 +112,14 @@ export default function ResultsScreen() {
       sulphites: ['sulphite', 'sulfite', 'sulphur', 'sulfur', 'e220', 'e221', 'e222', 'e223', 'e224'],
       sesame: ['sesame', 'tahini', 'til'],
     }
-
     const conditionKeywords: Record<string, string[]> = {
-      diabetes: ['sugar', 'fructose', 'glucose', 'dextrose', 'maltose', 'sucrose', 'syrup', 'sweetener'],
+      diabetes: ['sugar', 'fructose', 'glucose', 'dextrose', 'maltose', 'sucrose', 'syrup'],
       hypertension: ['sodium', 'salt', 'monosodium', 'msg'],
       celiac: ['gluten', 'wheat', 'barley', 'rye'],
       kidney_disease: ['potassium', 'phosphate', 'phosphorus', 'sodium'],
-      heart_disease: ['trans fat', 'hydrogenated', 'palm oil', 'saturated'],
-      pregnancy: ['caffeine', 'retinol', 'vitamin a', 'aspartame', 'saccharin', 'nitrate', 'nitrite'],
+      heart_disease: ['trans fat', 'hydrogenated', 'palm oil'],
+      pregnancy: ['caffeine', 'retinol', 'aspartame', 'saccharin', 'nitrate', 'nitrite'],
     }
-
     const dietKeywords: Record<string, string[]> = {
       vegan: ['gelatin', 'carmine', 'e120', 'lard', 'rennet', 'casein', 'whey', 'albumin', 'lactose'],
       vegetarian: ['gelatin', 'lard', 'rennet', 'carmine', 'e120'],
@@ -144,155 +129,116 @@ export default function ResultsScreen() {
     }
 
     for (const allergy of preferences.allergies) {
-      const keywords = allergyKeywords[allergy] || []
-      if (keywords.some(k => haystack.includes(k))) {
+      if ((allergyKeywords[allergy] || []).some(k => haystack.includes(k)))
         return `May trigger your ${allergy} allergy`
-      }
     }
-
     for (const condition of preferences.conditions) {
-      const keywords = conditionKeywords[condition] || []
-      if (keywords.some(k => haystack.includes(k))) {
+      if ((conditionKeywords[condition] || []).some(k => haystack.includes(k)))
         return `May be relevant to your ${condition.replace('_', ' ')}`
-      }
     }
-
     if (preferences.diet_type !== 'none') {
-      const keywords = dietKeywords[preferences.diet_type] || []
-      if (keywords.some(k => haystack.includes(k))) {
+      if ((dietKeywords[preferences.diet_type] || []).some(k => haystack.includes(k)))
         return `May not be suitable for ${preferences.diet_type} diet`
-      }
     }
-
     return null
   }
 
-  const getScoreColor = (score: number) => {
-    if (score >= 75) return '#00E5A0'
-    if (score >= 45) return '#EF9F27'
-    return '#E24B4A'
-  }
-
-  const getSafetyColor = (level: string) => {
-    const colors = { safe: '#00E5A0', caution: '#EF9F27', harmful: '#E24B4A', unknown: '#555' }
-    return colors[level as keyof typeof colors] || '#555'
-  }
-
-  const getSafetyLabel = (level: string) => {
-    const labels = { safe: 'Safe', caution: 'Caution', harmful: 'Harmful', unknown: 'Unknown' }
-    return labels[level as keyof typeof labels] || 'Unknown'
-  }
-
-  const getBannedCount = () =>
-    ingredients.filter(i => Object.values(i.country_status || {}).includes('banned')).length
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
-
-  const flaggedIngredients = ingredients.filter(i => getPersonalFlag(i))
+  const getScoreColor = (s: number) => s >= 75 ? Colors.safe : s >= 45 ? Colors.caution : Colors.harmful
+  const getSafetyColor = (l: string) => ({ safe: Colors.safe, caution: Colors.caution, harmful: Colors.harmful, unknown: Colors.unknown }[l] || Colors.unknown)
+  const getSafetyLabel = (l: string) => ({ safe: 'Safe', caution: 'Caution', harmful: 'Harmful', unknown: 'Unknown' }[l] || 'Unknown')
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#00E5A0" size="large" />
+      <View style={styles.centered}>
+        <ActivityIndicator color={Colors.primary} size="large" />
         <Text style={styles.loadingText}>Loading results...</Text>
       </View>
     )
   }
 
-  if (errorMsg) {
+  if (errorMsg || !scan) {
     return (
-      <View style={styles.loading}>
-        <Text style={styles.errorText}>{errorMsg}</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backFallback}>
-          <Text style={styles.backFallbackText}>Go back</Text>
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{errorMsg || 'Something went wrong'}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.errorBtn}>
+          <Text style={styles.errorBtnText}>Go back</Text>
         </TouchableOpacity>
       </View>
     )
   }
 
-  if (!scan) return null
-
   const scoreColor = getScoreColor(scan.safety_score)
-  const bannedCount = getBannedCount()
+  const scoreLabel = scan.safety_score >= 75 ? 'Safe' : scan.safety_score >= 45 ? 'Caution' : 'Harmful'
   const harmfulCount = ingredients.filter(i => i.safety_level === 'harmful').length
   const cautionCount = ingredients.filter(i => i.safety_level === 'caution').length
   const safeCount = ingredients.filter(i => i.safety_level === 'safe').length
+  const bannedCount = ingredients.filter(i => Object.values(i.country_status || {}).includes('banned')).length
+  const flaggedIngredients = ingredients.filter(i => getPersonalFlag(i))
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backText}>←</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.labelButton} onPress={() => setLabelModal(true)}>
-            <Text style={styles.labelButtonText} numberOfLines={1}>
+          <TouchableOpacity style={styles.labelBtn} onPress={() => setLabelModal(true)}>
+            <Text style={styles.labelBtnText} numberOfLines={1}>
               {scan.label || 'Name this scan'}
             </Text>
-            <Text style={styles.labelButtonIcon}>✏️</Text>
+            <PencilSimple size={14} color={Colors.primary} weight="bold" />
           </TouchableOpacity>
         </View>
 
         {/* Score card */}
-        <View style={styles.scoreCard}>
+        <View style={[styles.scoreCard, Shadows.md]}>
           <View style={styles.scoreLeft}>
             <Text style={styles.scoreTitle}>Safety score</Text>
             <Text style={[styles.scoreNumber, { color: scoreColor }]}>{scan.safety_score}</Text>
             <Text style={styles.scoreDate}>{formatDate(scan.created_at)}</Text>
           </View>
-          <View style={[styles.scoreRing, { borderColor: scoreColor }]}>
-            <Text style={[styles.scoreRingNumber, { color: scoreColor }]}>{scan.safety_score}</Text>
-            <Text style={[styles.scoreRingLabel, { color: scoreColor }]}>
-              {scan.safety_score >= 75 ? 'Safe' : scan.safety_score >= 45 ? 'Caution' : 'Harmful'}
-            </Text>
+          <View style={[styles.scoreRing, { borderColor: `${scoreColor}40` }]}>
+            <View style={[styles.scoreRingInner, { backgroundColor: `${scoreColor}12` }]}>
+              <Text style={[styles.scoreRingNum, { color: scoreColor }]}>{scan.safety_score}</Text>
+              <Text style={[styles.scoreRingLabel, { color: scoreColor }]}>{scoreLabel}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statNum, { color: '#E24B4A' }]}>{harmfulCount}</Text>
-            <Text style={styles.statLbl}>Harmful</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statNum, { color: '#EF9F27' }]}>{cautionCount}</Text>
-            <Text style={styles.statLbl}>Caution</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statNum, { color: '#00E5A0' }]}>{safeCount}</Text>
-            <Text style={styles.statLbl}>Safe</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statNum, { color: '#E24B4A' }]}>{bannedCount}</Text>
-            <Text style={styles.statLbl}>Banned</Text>
-          </View>
+        {/* Stats strip */}
+        <View style={[styles.statsStrip, Shadows.sm]}>
+          {[
+            { num: harmfulCount, label: 'Harmful', color: Colors.harmful },
+            { num: cautionCount, label: 'Caution', color: Colors.caution },
+            { num: safeCount, label: 'Safe', color: Colors.safe },
+            { num: bannedCount, label: 'Banned', color: Colors.harmful },
+          ].map((s, i, arr) => (
+            <View key={s.label} style={styles.statGroup}>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNum, { color: s.color }]}>{s.num}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
+              </View>
+              {i < arr.length - 1 && <View style={styles.statDivider} />}
+            </View>
+          ))}
         </View>
 
-        {/* Personal flags alert — only shown if user has preferences set */}
+        {/* Personal flag alert */}
         {hasPreferences && flaggedIngredients.length > 0 && (
           <View style={styles.personalAlert}>
-            <Text style={styles.personalAlertIcon}>⚠️</Text>
-            <View style={styles.personalAlertContent}>
+            <View style={styles.personalAlertIcon}>
+              <User size={16} color={Colors.personal} weight="fill" />
+            </View>
+            <View style={styles.personalAlertText}>
               <Text style={styles.personalAlertTitle}>
                 {flaggedIngredients.length} ingredient{flaggedIngredients.length > 1 ? 's' : ''} flagged for you
               </Text>
-              <Text style={styles.personalAlertSub}>
-                Based on your dietary preferences
-              </Text>
+              <Text style={styles.personalAlertSub}>Based on your dietary preferences</Text>
             </View>
           </View>
         )}
@@ -300,76 +246,70 @@ export default function ResultsScreen() {
         {/* Country ban alert */}
         {bannedCount > 0 && (
           <View style={styles.banAlert}>
-            <Text style={styles.banAlertIcon}>🌍</Text>
+            <Globe size={18} color={Colors.harmful} weight="fill" />
             <Text style={styles.banAlertText}>
               {bannedCount} ingredient{bannedCount > 1 ? 's are' : ' is'} banned in at least one country
             </Text>
           </View>
         )}
 
-        {/* Ingredients list */}
+        {/* Ingredients */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ingredients ({ingredients.length})</Text>
-          {ingredients.map((ingredient) => {
+          {ingredients.map(ingredient => {
             const personalFlag = getPersonalFlag(ingredient)
+            const safetyColor = getSafetyColor(ingredient.safety_level)
+            const safetyLabel = getSafetyLabel(ingredient.safety_level)
             return (
               <TouchableOpacity
                 key={ingredient.id}
-                style={[
-                  styles.ingredientCard,
-                  personalFlag ? styles.ingredientCardFlagged : null,
-                ]}
+                style={[styles.card, personalFlag && styles.cardFlagged, Shadows.sm]}
                 onPress={() => router.push(`/ingredient/${ingredient.id}`)}
                 activeOpacity={0.8}
               >
-                <View style={styles.ingredientTop}>
-                  <View style={styles.ingredientLeft}>
-                    <Text style={styles.ingredientName}>
+                <View style={styles.cardTop}>
+                  <View style={styles.cardLeft}>
+                    <Text style={styles.cardName}>
                       {ingredient.name.charAt(0).toUpperCase() + ingredient.name.slice(1)}
                     </Text>
-                    <Text style={styles.ingredientCategory}>{ingredient.category}</Text>
+                    <Text style={styles.cardCategory}>{ingredient.category}</Text>
                   </View>
-                  <View style={[
-                    styles.safetyBadge,
-                    { backgroundColor: `${getSafetyColor(ingredient.safety_level)}15` }
-                  ]}>
-                    <Text style={[
-                      styles.safetyBadgeText,
-                      { color: getSafetyColor(ingredient.safety_level) }
-                    ]}>
-                      {getSafetyLabel(ingredient.safety_level)}
-                    </Text>
+                  <View style={[styles.safetyBadge, { backgroundColor: `${safetyColor}15` }]}>
+                    {ingredient.safety_level === 'harmful' && <ShieldWarning size={10} color={safetyColor} weight="fill" />}
+                    {ingredient.safety_level === 'caution' && <Warning size={10} color={safetyColor} weight="fill" />}
+                    {ingredient.safety_level === 'safe' && <CheckCircle size={10} color={safetyColor} weight="fill" />}
+                    <Text style={[styles.safetyBadgeText, { color: safetyColor }]}>{safetyLabel}</Text>
                   </View>
                 </View>
 
-                <Text style={styles.ingredientDesc} numberOfLines={2}>
-                  {ingredient.description}
-                </Text>
+                <Text style={styles.cardDesc} numberOfLines={2}>{ingredient.description}</Text>
 
-                {/* Personal flag banner */}
                 {personalFlag && (
                   <View style={styles.personalFlagRow}>
-                    <Text style={styles.personalFlagIcon}>👤</Text>
+                    <User size={11} color={Colors.personal} weight="fill" />
                     <Text style={styles.personalFlagText}>{personalFlag}</Text>
                   </View>
                 )}
 
                 {ingredient.health_concerns?.length > 0 && (
-                  <View style={styles.concernsRow}>
-                    <Text style={styles.concernsLabel}>⚠️ </Text>
-                    <Text style={styles.concernsText} numberOfLines={1}>
+                  <View style={styles.concernRow}>
+                    <Warning size={11} color={Colors.caution} weight="fill" />
+                    <Text style={styles.concernText} numberOfLines={1}>
                       {ingredient.health_concerns[0]}
                     </Text>
                   </View>
                 )}
 
-                <View style={styles.ingredientFooter}>
-                  <Text style={styles.viewDetail}>View details →</Text>
-                  {Object.values(ingredient.country_status || {}).includes('banned') && (
-                    <View style={styles.bannedChip}>
-                      <Text style={styles.bannedChipText}>🚫 Banned somewhere</Text>
-                    </View>
-                  )}
+                <View style={styles.cardFooter}>
+                  <Text style={styles.viewDetails}>View details</Text>
+                  <View style={styles.cardFooterRight}>
+                    {Object.values(ingredient.country_status || {}).includes('banned') && (
+                      <View style={styles.bannedChip}>
+                        <Text style={styles.bannedChipText}>🚫 Banned</Text>
+                      </View>
+                    )}
+                    <ArrowRight size={14} color={Colors.textTertiary} weight="bold" />
+                  </View>
                 </View>
               </TouchableOpacity>
             )
@@ -380,31 +320,40 @@ export default function ResultsScreen() {
       {/* Label modal */}
       <Modal visible={labelModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, Shadows.lg]}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Name this scan</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Name this scan</Text>
+              <TouchableOpacity onPress={() => setLabelModal(false)} style={styles.modalCloseBtn}>
+                <X size={16} color={Colors.textSecondary} weight="bold" />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.modalLabel}>Product name</Text>
             <TextInput
               style={styles.modalInput}
               value={labelText}
               onChangeText={setLabelText}
               placeholder="e.g. Lays Classic, Coca Cola..."
-              placeholderTextColor="#333"
+              placeholderTextColor={Colors.textTertiary}
               autoFocus
               autoCapitalize="words"
             />
             <TouchableOpacity
-              style={[styles.modalButton, saving && { opacity: 0.6 }]}
+              style={[styles.modalBtn, saving && { opacity: 0.6 }, Shadows.primary]}
               onPress={saveLabel}
               disabled={saving}
             >
-              {saving
-                ? <ActivityIndicator color="#080808" />
-                : <Text style={styles.modalButtonText}>Save name</Text>
-              }
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancel} onPress={() => setLabelModal(false)}>
-              <Text style={styles.modalCancelText}>Cancel</Text>
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalBtnGradient}
+              >
+                {saving
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.modalBtnText}>Save name</Text>
+                }
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -414,145 +363,83 @@ export default function ResultsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#080808' },
-  loading: {
-    flex: 1, backgroundColor: '#080808',
-    alignItems: 'center', justifyContent: 'center', gap: 16,
-  },
-  loadingText: { fontSize: 14, color: '#555' },
-  errorText: { fontSize: 14, color: '#ff6b6b', textAlign: 'center', paddingHorizontal: 32 },
-  backFallback: {
-    marginTop: 8, backgroundColor: '#111', borderRadius: 10,
-    paddingHorizontal: 24, paddingVertical: 12,
-  },
-  backFallbackText: { fontSize: 14, color: '#00E5A0', fontWeight: '600' },
+  container: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  loadingText: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary },
+  errorText: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.danger, textAlign: 'center', paddingHorizontal: 32 },
+  errorBtn: { backgroundColor: Colors.primaryLight, borderRadius: Radius.xl, paddingHorizontal: 24, paddingVertical: 12 },
+  errorBtnText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.primary },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 100 },
+
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: 24, marginBottom: 20,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl,
   },
-  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 24, color: '#fff' },
-  labelButton: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'flex-end', gap: 8, paddingLeft: 16,
-  },
-  labelButtonText: { fontSize: 15, fontWeight: '600', color: '#fff', maxWidth: 200 },
-  labelButtonIcon: { fontSize: 14 },
-  scoreCard: {
-    marginHorizontal: 24, backgroundColor: '#111',
-    borderRadius: 20, borderWidth: 1, borderColor: '#1a1a1a',
-    padding: 24, flexDirection: 'row',
-    alignItems: 'center', justifyContent: 'space-between', marginBottom: 16,
-  },
+  backBtn: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },
+  labelBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, paddingLeft: 16 },
+  labelBtnText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.textPrimary, maxWidth: 200 },
+
+  scoreCard: { marginHorizontal: Spacing['2xl'], backgroundColor: Colors.surface, borderRadius: Radius['2xl'], padding: Spacing['2xl'], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
   scoreLeft: { gap: 4 },
-  scoreTitle: { fontSize: 13, color: '#555', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 },
-  scoreNumber: { fontSize: 52, fontWeight: '800', lineHeight: 60 },
-  scoreDate: { fontSize: 12, color: '#333', marginTop: 4 },
-  scoreRing: {
-    width: 90, height: 90, borderRadius: 45,
-    borderWidth: 4, alignItems: 'center', justifyContent: 'center',
-  },
-  scoreRingNumber: { fontSize: 24, fontWeight: '800' },
-  scoreRingLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
-  statsRow: {
-    flexDirection: 'row', marginHorizontal: 24,
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1a1a1a',
-    paddingVertical: 16, marginBottom: 16,
-  },
-  statItem: { flex: 1, alignItems: 'center', gap: 4 },
-  statNum: { fontSize: 22, fontWeight: '800' },
-  statLbl: { fontSize: 10, color: '#444', textTransform: 'uppercase', letterSpacing: 0.5 },
-  statDivider: { width: 1, backgroundColor: '#1a1a1a' },
-  personalAlert: {
-    marginHorizontal: 24, backgroundColor: '#7B61FF15',
-    borderWidth: 1, borderColor: '#7B61FF30',
-    borderRadius: 12, padding: 14,
-    flexDirection: 'row', alignItems: 'center',
-    gap: 10, marginBottom: 12,
-  },
-  personalAlertIcon: { fontSize: 18 },
-  personalAlertContent: { flex: 1 },
-  personalAlertTitle: { fontSize: 13, color: '#7B61FF', fontWeight: '600' },
-  personalAlertSub: { fontSize: 11, color: '#7B61FF80', marginTop: 2 },
-  banAlert: {
-    marginHorizontal: 24, backgroundColor: '#E24B4A15',
-    borderWidth: 1, borderColor: '#E24B4A30',
-    borderRadius: 12, padding: 14,
-    flexDirection: 'row', alignItems: 'center',
-    gap: 10, marginBottom: 24,
-  },
-  banAlertIcon: { fontSize: 18 },
-  banAlertText: { fontSize: 13, color: '#E24B4A', flex: 1, lineHeight: 20 },
-  section: { paddingHorizontal: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 16 },
-  ingredientCard: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1a1a1a',
-    padding: 16, marginBottom: 10, gap: 8,
-  },
-  ingredientCardFlagged: {
-    borderColor: '#7B61FF40',
-    backgroundColor: '#7B61FF08',
-  },
-  ingredientTop: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    justifyContent: 'space-between', gap: 12,
-  },
-  ingredientLeft: { flex: 1, gap: 3 },
-  ingredientName: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  ingredientCategory: { fontSize: 12, color: '#555' },
-  safetyBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  safetyBadgeText: { fontSize: 11, fontWeight: '700' },
-  ingredientDesc: { fontSize: 13, color: '#555', lineHeight: 20 },
-  personalFlagRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#7B61FF15', borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 6,
-  },
-  personalFlagIcon: { fontSize: 12 },
-  personalFlagText: { fontSize: 12, color: '#7B61FF', flex: 1, lineHeight: 16, fontWeight: '500' },
-  concernsRow: { flexDirection: 'row', alignItems: 'center' },
-  concernsLabel: { fontSize: 12 },
-  concernsText: { fontSize: 12, color: '#EF9F27', flex: 1 },
-  ingredientFooter: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginTop: 4,
-  },
-  viewDetail: { fontSize: 12, color: '#00E5A0', fontWeight: '600' },
-  bannedChip: {
-    backgroundColor: '#E24B4A15', paddingHorizontal: 8,
-    paddingVertical: 3, borderRadius: 6,
-  },
-  bannedChipText: { fontSize: 10, color: '#E24B4A' },
-  modalOverlay: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: '#111', borderTopLeftRadius: 24,
-    borderTopRightRadius: 24, padding: 24,
-    borderWidth: 1, borderColor: '#1a1a1a',
-  },
-  modalHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: '#333', alignSelf: 'center', marginBottom: 24,
-  },
-  modalTitle: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 20 },
-  modalLabel: {
-    fontSize: 12, color: '#888', fontWeight: '500',
-    letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8,
-  },
-  modalInput: {
-    backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222',
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, color: '#fff', marginBottom: 16,
-  },
-  modalButton: {
-    backgroundColor: '#00E5A0', borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginBottom: 12,
-  },
-  modalButtonText: { fontSize: 16, fontWeight: '700', color: '#080808' },
-  modalCancel: { alignItems: 'center', paddingVertical: 12 },
-  modalCancelText: { fontSize: 15, color: '#555' },
+  scoreTitle: { fontFamily: Fonts.medium, fontSize: FontSizes.xs, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  scoreNumber: { fontFamily: Fonts.extrabold, fontSize: FontSizes['7xl'], lineHeight: 52 },
+  scoreDate: { fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.textTertiary, marginTop: 4 },
+  scoreRing: { width: 88, height: 88, borderRadius: 44, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  scoreRingInner: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  scoreRingNum: { fontFamily: Fonts.extrabold, fontSize: FontSizes['2xl'] },
+  scoreRingLabel: { fontFamily: Fonts.bold, fontSize: FontSizes.xs, textTransform: 'uppercase', letterSpacing: 0.3 },
+
+  statsStrip: { flexDirection: 'row', marginHorizontal: Spacing['2xl'], backgroundColor: Colors.surface, borderRadius: Radius.xl, marginBottom: Spacing.lg },
+  statGroup: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  statItem: { flex: 1, alignItems: 'center', paddingVertical: Spacing.lg, gap: 3 },
+  statNum: { fontFamily: Fonts.extrabold, fontSize: FontSizes['2xl'] },
+  statLabel: { fontFamily: Fonts.medium, fontSize: FontSizes.xs, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.3 },
+  statDivider: { width: 1, height: 32, backgroundColor: Colors.border },
+
+  personalAlert: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginHorizontal: Spacing['2xl'], backgroundColor: Colors.personalLight, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md },
+  personalAlertIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${Colors.personal}20`, alignItems: 'center', justifyContent: 'center' },
+  personalAlertText: { flex: 1 },
+  personalAlertTitle: { fontFamily: Fonts.semibold, fontSize: FontSizes.sm, color: Colors.personal },
+  personalAlertSub: { fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: `${Colors.personal}80`, marginTop: 2 },
+
+  banAlert: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginHorizontal: Spacing['2xl'], backgroundColor: Colors.dangerLight, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.xl },
+  banAlertText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger, flex: 1 },
+
+  section: { paddingHorizontal: Spacing['2xl'] },
+  sectionTitle: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: Colors.textPrimary, marginBottom: Spacing.lg },
+
+  card: { backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md, gap: Spacing.md },
+  cardFlagged: { borderWidth: 1, borderColor: `${Colors.personal}30`, backgroundColor: `${Colors.personal}05` },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  cardLeft: { flex: 1, gap: 3 },
+  cardName: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.textPrimary },
+  cardCategory: { fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.textTertiary },
+  safetyBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full },
+  safetyBadgeText: { fontFamily: Fonts.bold, fontSize: FontSizes.xs },
+  cardDesc: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: Colors.textSecondary, lineHeight: 20 },
+
+  personalFlagRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.personalLight, borderRadius: Radius.md, paddingHorizontal: 10, paddingVertical: 6 },
+  personalFlagText: { fontFamily: Fonts.medium, fontSize: FontSizes.xs, color: Colors.personal, flex: 1 },
+
+  concernRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  concernText: { fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.caution, flex: 1 },
+
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  viewDetails: { fontFamily: Fonts.semibold, fontSize: FontSizes.xs, color: Colors.primary },
+  cardFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bannedChip: { backgroundColor: Colors.dangerLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full },
+  bannedChipText: { fontFamily: Fonts.medium, fontSize: FontSizes.xs, color: Colors.danger },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'], padding: Spacing['2xl'] },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: Spacing.xl },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xl },
+  modalTitle: { fontFamily: Fonts.bold, fontSize: FontSizes['2xl'], color: Colors.textPrimary },
+  modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surfaceSecondary, alignItems: 'center', justifyContent: 'center' },
+  modalLabel: { fontFamily: Fonts.medium, fontSize: FontSizes.xs, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  modalInput: { backgroundColor: Colors.surfaceSecondary, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textPrimary, marginBottom: Spacing.xl },
+  modalBtn: { borderRadius: Radius.xl, overflow: 'hidden' },
+  modalBtnGradient: { paddingVertical: Spacing.xl, alignItems: 'center' },
+  modalBtnText: { fontFamily: Fonts.bold, fontSize: FontSizes.lg, color: '#fff' },
 })
