@@ -1,74 +1,142 @@
-import { View, Text, TouchableOpacity, Dimensions, StyleSheet } from 'react-native'
+import {
+  View, Text, StyleSheet, TouchableOpacity,
+  ScrollView, Platform
+} from 'react-native'
 import { useRouter } from 'expo-router'
-import { LinearGradient } from 'expo-linear-gradient'
 import { StatusBar } from 'expo-status-bar'
+import { LinearGradient } from 'expo-linear-gradient'
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
+import {
+  Scan, ShieldCheck, Globe, ArrowRight, Leaf
+} from 'phosphor-react-native'
 
-const { width, height } = Dimensions.get('window')
+const FEATURES = [
+  {
+    icon: Scan,
+    color: Colors.primary,
+    bg: Colors.primaryLight,
+    title: 'Scan any label',
+    desc: 'Point your camera at any ingredient list for instant AI analysis.',
+  },
+  {
+    icon: ShieldCheck,
+    color: Colors.info,
+    bg: Colors.infoLight,
+    title: 'Safety ratings',
+    desc: 'Every ingredient rated Safe, Caution, or Harmful with full explanation.',
+  },
+  {
+    icon: Globe,
+    color: Colors.warning,
+    bg: Colors.warningLight,
+    title: 'Global ban checks',
+    desc: 'See which ingredients are banned in the US, EU, India, Japan and more.',
+  },
+]
 
 export default function WelcomeScreen() {
   const router = useRouter()
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* Background circles for depth */}
-      <View style={styles.circle1} />
-      <View style={styles.circle2} />
-      <View style={styles.circle3} />
+      {/* Decorative blobs */}
+      <View style={styles.blob1} />
+      <View style={styles.blob2} />
 
-      {/* Top section */}
-      <View style={styles.topSection}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logoIcon}>
-            <Text style={styles.logoIconText}>⬡</Text>
-          </View>
-        </View>
-        <Text style={styles.brand}>INGRYN</Text>
-        <Text style={styles.tagline}>Know what's inside.</Text>
-      </View>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* ─── Hero section ─── */}
+        <View style={styles.hero}>
+          {/* Logo */}
+          <LinearGradient
+            colors={[Colors.primary, Colors.primaryDark]}
+            style={styles.logoGradient}
+          >
+            <Leaf size={36} color="#fff" weight="fill" />
+          </LinearGradient>
 
-      {/* Feature pills */}
-      <View style={styles.featuresSection}>
-        <FeaturePill emoji="🔬" text="AI-powered ingredient analysis" />
-        <FeaturePill emoji="🌍" text="Country ban detection" />
-        <FeaturePill emoji="⚡" text="Instant camera scanning" />
-      </View>
-
-      {/* Bottom CTA */}
-      <View style={styles.bottomSection}>
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => router.push('/(auth)/signup')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.primaryButtonText}>Get Started</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => router.push('/(auth)/signin')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.secondaryButtonText}>
-            Already have an account?{' '}
-            <Text style={styles.secondaryButtonHighlight}>Sign in</Text>
+          {/* Brand */}
+          <Text style={styles.brand}>INGRYN</Text>
+          <Text style={styles.tagline}>Know what's inside.</Text>
+          <Text style={styles.subtagline}>
+            AI-powered ingredient analysis for{'\n'}the products you use every day.
           </Text>
-        </TouchableOpacity>
+        </View>
 
-        <Text style={styles.legal}>
-          By continuing, you agree to our Terms & Privacy Policy
-        </Text>
-      </View>
+        {/* ─── Feature cards ─── */}
+        <View style={styles.features}>
+          {FEATURES.map((f, i) => (
+            <View key={i} style={[styles.featureCard, Shadows.sm]}>
+              <View style={[styles.featureIconBox, { backgroundColor: f.bg }]}>
+                <f.icon size={22} color={f.color} weight="fill" />
+              </View>
+              <View style={styles.featureText}>
+                <Text style={styles.featureTitle}>{f.title}</Text>
+                <Text style={styles.featureDesc}>{f.desc}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* ─── Stats strip ─── */}
+        <View style={[styles.statsStrip, Shadows.sm]}>
+          <StatItem value="10s" label="Scan time" />
+          <View style={styles.statDivider} />
+          <StatItem value="117+" label="Ingredients" />
+          <View style={styles.statDivider} />
+          <StatItem value="8" label="Countries" />
+        </View>
+
+        {/* ─── CTAs ─── */}
+        <View style={styles.ctas}>
+          <TouchableOpacity
+            onPress={() => router.push('/(auth)/signup')}
+            activeOpacity={0.9}
+            style={styles.primaryBtnWrapper}
+          >
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.primaryBtn}
+            >
+              <Text style={styles.primaryBtnText}>Get started — it's free</Text>
+              <View style={styles.primaryBtnArrow}>
+                <ArrowRight size={18} color={Colors.primary} weight="bold" />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={() => router.push('/(auth)/signin')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.secondaryBtnText}>
+              Already have an account?{' '}
+              <Text style={styles.secondaryBtnLink}>Sign in</Text>
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={styles.legal}>
+            By continuing, you agree to our Terms of Service and Privacy Policy
+          </Text>
+        </View>
+      </ScrollView>
     </View>
   )
 }
 
-function FeaturePill({ emoji, text }: { emoji: string; text: string }) {
+function StatItem({ value, label }: { value: string; label: string }) {
   return (
-    <View style={styles.pill}>
-      <Text style={styles.pillEmoji}>{emoji}</Text>
-      <Text style={styles.pillText}>{text}</Text>
+    <View style={styles.statItem}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   )
 }
@@ -76,129 +144,186 @@ function FeaturePill({ emoji, text }: { emoji: string; text: string }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080808',
-    paddingHorizontal: 24,
-    justifyContent: 'space-between',
-    paddingTop: 80,
+    backgroundColor: Colors.background,
+  },
+  blob1: {
+    position: 'absolute',
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: `${Colors.primary}12`,
+    top: -120,
+    right: -100,
+  },
+  blob2: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: `${Colors.primary}08`,
+    bottom: 80,
+    left: -80,
+  },
+  scroll: {
+    paddingTop: Platform.OS === 'ios' ? 80 : 60,
+    paddingHorizontal: Spacing['2xl'],
     paddingBottom: 48,
+    gap: Spacing['2xl'],
   },
-  circle1: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: '#00E5A015',
-    top: -80,
-    right: -80,
-  },
-  circle2: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#00E5A008',
-    bottom: 100,
-    left: -60,
-  },
-  circle3: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#00E5A010',
-    top: 200,
-    left: 40,
-  },
-  topSection: {
+
+  // Hero
+  hero: {
     alignItems: 'center',
-    marginTop: 40,
+    gap: Spacing.md,
+    paddingBottom: Spacing.lg,
   },
-  logoContainer: {
-    marginBottom: 20,
+  logoGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+    ...Shadows.primary,
   },
-  logoIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#00E5A015',
-    borderWidth: 1,
-    borderColor: '#00E5A030',
+  brand: {
+    fontFamily: Fonts.extrabold,
+    fontSize: FontSizes['6xl'],
+    color: Colors.textPrimary,
+    letterSpacing: 6,
+  },
+  tagline: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes['3xl'],
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  subtagline: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.base,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginTop: 4,
+  },
+
+  // Features
+  features: {
+    gap: Spacing.md,
+  },
+  featureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    gap: Spacing.lg,
+  },
+  featureIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  featureText: {
+    flex: 1,
+    gap: 4,
+  },
+  featureTitle: {
+    fontFamily: Fonts.semibold,
+    fontSize: FontSizes.base,
+    color: Colors.textPrimary,
+  },
+  featureDesc: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+
+  // Stats strip
+  statsStrip: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    paddingVertical: Spacing.xl,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  statValue: {
+    fontFamily: Fonts.extrabold,
+    fontSize: FontSizes['3xl'],
+    color: Colors.primary,
+  },
+  statLabel: {
+    fontFamily: Fonts.medium,
+    fontSize: FontSizes.xs,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 4,
+  },
+
+  // CTAs
+  ctas: {
+    gap: Spacing.lg,
+    alignItems: 'center',
+  },
+  primaryBtnWrapper: {
+    width: '100%',
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
+    ...Shadows.primary,
+  },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing['2xl'],
+    gap: Spacing.md,
+  },
+  primaryBtnText: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.lg,
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+  primaryBtnArrow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoIconText: {
-    fontSize: 36,
-    color: '#00E5A0',
+  secondaryBtn: {
+    paddingVertical: Spacing.sm,
   },
-  brand: {
-    fontSize: 42,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 8,
-    marginBottom: 12,
+  secondaryBtnText: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.base,
+    color: Colors.textSecondary,
   },
-  tagline: {
-    fontSize: 18,
-    color: '#666',
-    fontWeight: '300',
-    letterSpacing: 1,
-  },
-  featuresSection: {
-    gap: 12,
-    marginVertical: 40,
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#222',
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    gap: 14,
-  },
-  pillEmoji: {
-    fontSize: 20,
-  },
-  pillText: {
-    fontSize: 15,
-    color: '#ccc',
-    fontWeight: '400',
-    letterSpacing: 0.3,
-  },
-  bottomSection: {
-    gap: 16,
-    alignItems: 'center',
-  },
-  primaryButton: {
-    width: '100%',
-    backgroundColor: '#00E5A0',
-    borderRadius: 14,
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#080808',
-    letterSpacing: 0.5,
-  },
-  secondaryButton: {
-    paddingVertical: 8,
-  },
-  secondaryButtonText: {
-    fontSize: 14,
-    color: '#555',
-  },
-  secondaryButtonHighlight: {
-    color: '#00E5A0',
-    fontWeight: '600',
+  secondaryBtnLink: {
+    fontFamily: Fonts.bold,
+    color: Colors.primary,
   },
   legal: {
-    fontSize: 11,
-    color: '#333',
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.xs,
+    color: Colors.textTertiary,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 18,
+    paddingHorizontal: Spacing.lg,
   },
 })
