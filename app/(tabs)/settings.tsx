@@ -1,539 +1,600 @@
 import { useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Alert, ActivityIndicator, TextInput, Modal
+  ScrollView, TextInput, ActivityIndicator,
+  Platform, Alert
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import { DietaryPreferencesModal } from '@/components/DietaryPreferencesModal'
+import {
+  User, PencilSimple, Lock, SignOut, Trash,
+  ShieldCheck, FileText, Info, CaretRight,
+  CheckCircle, Leaf, X, Eye, EyeSlash
+} from 'phosphor-react-native'
+import { LinearGradient } from 'expo-linear-gradient'
+import Constants from 'expo-constants'
 
 export default function SettingsScreen() {
-  const { user } = useAuthStore()
-  const [signingOut, setSigningOut] = useState(false)
-  const [editNameModal, setEditNameModal] = useState(false)
-  const [changePasswordModal, setChangePasswordModal] = useState(false)
-  const [deleteModal, setDeleteModal] = useState(false)
-  const [dietaryModal, setDietaryModal] = useState(false)
+  const router = useRouter()
+  const { user, setUser } = useAuthStore()
 
-  const fullName = user?.user_metadata?.full_name || 'User'
+  const [showDietaryModal, setShowDietaryModal] = useState(false)
+
+  // Edit name
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState(
+    user?.user_metadata?.full_name || ''
+  )
+  const [nameSaving, setNameSaving] = useState(false)
+  const [nameError, setNameError] = useState('')
+  const [nameSuccess, setNameSuccess] = useState(false)
+
+  // Change password
+  const [editingPassword, setEditingPassword] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
+
+  const displayName = user?.user_metadata?.full_name || user?.email || 'User'
   const email = user?.email || ''
-  const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+  const initial = displayName.charAt(0).toUpperCase()
+  const appVersion = Constants.expoConfig?.version || '1.0.0'
+
+  async function handleSaveName() {
+    setNameError('')
+    if (!nameValue.trim()) {
+      setNameError('Name cannot be empty.')
+      return
+    }
+    setNameSaving(true)
+    const { error } = await supabase.auth.updateUser({
+      data: { full_name: nameValue.trim() },
+    })
+    setNameSaving(false)
+    if (error) {
+      setNameError(error.message)
+    } else {
+      setNameSuccess(true)
+      setEditingName(false)
+      setTimeout(() => setNameSuccess(false), 3000)
+    }
+  }
+
+  async function handleChangePassword() {
+    setPasswordError('')
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters.')
+      return
+    }
+    setPasswordSaving(true)
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setPasswordSaving(false)
+    if (error) {
+      setPasswordError(error.message)
+    } else {
+      setPasswordSuccess(true)
+      setNewPassword('')
+      setEditingPassword(false)
+      setTimeout(() => setPasswordSuccess(false), 3000)
+    }
+  }
 
   async function handleSignOut() {
+    await supabase.auth.signOut()
+    setUser(null)
+    router.replace('/(auth)/welcome')
+  }
+
+  function confirmDeleteAccount() {
     Alert.alert(
-      'Sign out',
-      'Are you sure you want to sign out?',
+      'Delete account',
+      'This will permanently delete your account and all scan history. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Sign out',
+          text: 'Delete account',
           style: 'destructive',
-          onPress: async () => {
-            setSigningOut(true)
-            await supabase.auth.signOut()
-            setSigningOut(false)
-          }
-        }
+          onPress: deleteAccount,
+        },
       ]
     )
   }
 
+  async function deleteAccount() {
+    try {
+      const { error } = await supabase.rpc('delete_user_account', {
+        user_id: user?.id,
+      })
+      if (error) throw error
+      await supabase.auth.signOut()
+      setUser(null)
+      router.replace('/(auth)/welcome')
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Could not delete account.')
+    }
+  }
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
-      <View style={styles.bgCircle} />
+      <StatusBar style="dark" />
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={styles.title}>Profile</Text>
         </View>
 
-        {/* Profile card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
+        {/* Avatar card */}
+        <View style={[styles.profileCard, Shadows.md]}>
+          <LinearGradient
+            colors={[Colors.primary, Colors.primaryDark]}
+            style={styles.avatar}
+          >
+            <Text style={styles.avatarInitial}>{initial}</Text>
+          </LinearGradient>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{fullName}</Text>
-            <Text style={styles.profileEmail}>{email}</Text>
+            <Text style={styles.profileName} numberOfLines={1}>{displayName}</Text>
+            <Text style={styles.profileEmail} numberOfLines={1}>{email}</Text>
+          </View>
+          <View style={[styles.profileBadge]}>
+            <Leaf size={12} color={Colors.primary} weight="fill" />
+            <Text style={styles.profileBadgeText}>Free</Text>
           </View>
         </View>
 
-        {/* Account section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Account</Text>
-          <View style={styles.sectionCard}>
-            <SettingsRow
-              icon="👤"
-              label="Full name"
-              value={fullName}
-              onPress={() => setEditNameModal(true)}
-              showArrow
-            />
-            <View style={styles.rowDivider} />
-            <SettingsRow
-              icon="✉️"
-              label="Email"
-              value={email}
-            />
-            <View style={styles.rowDivider} />
-            <SettingsRow
-              icon="🔑"
-              label="Change password"
-              onPress={() => setChangePasswordModal(true)}
-              showArrow
-            />
+        {/* Success banners */}
+        {nameSuccess && (
+          <View style={styles.successBanner}>
+            <CheckCircle size={16} color={Colors.success} weight="fill" />
+            <Text style={styles.successText}>Name updated successfully</Text>
+          </View>
+        )}
+        {passwordSuccess && (
+          <View style={styles.successBanner}>
+            <CheckCircle size={16} color={Colors.success} weight="fill" />
+            <Text style={styles.successText}>Password changed successfully</Text>
+          </View>
+        )}
+
+        {/* ─── Account section ─── */}
+        <SectionHeader title="Account" />
+
+        {/* Edit name */}
+        <View style={[styles.settingCard, Shadows.sm]}>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: Colors.infoLight }]}>
+              <User size={18} color={Colors.info} weight="fill" />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingLabel}>Display name</Text>
+              {editingName ? (
+                <TextInput
+                  style={styles.settingInput}
+                  value={nameValue}
+                  onChangeText={t => { setNameValue(t); setNameError('') }}
+                  autoFocus
+                  placeholder="Your name"
+                  placeholderTextColor={Colors.textTertiary}
+                />
+              ) : (
+                <Text style={styles.settingValue}>{displayName}</Text>
+              )}
+              {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+            </View>
+            {editingName ? (
+              <View style={styles.editActions}>
+                <TouchableOpacity
+                  onPress={() => { setEditingName(false); setNameError('') }}
+                  style={styles.cancelIconBtn}
+                >
+                  <X size={14} color={Colors.textTertiary} weight="bold" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveBtn}
+                  onPress={handleSaveName}
+                  disabled={nameSaving}
+                >
+                  {nameSaving
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={styles.saveBtnText}>Save</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setEditingName(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <PencilSimple size={18} color={Colors.textTertiary} weight="regular" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
-        {/* Health section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Health</Text>
-          <View style={styles.sectionCard}>
-            <SettingsRow
-              icon="🥗"
-              label="Dietary preferences"
-              value="Manage"
-              onPress={() => setDietaryModal(true)}
-              showArrow
-            />
-          </View>
-
-        </View>
-        {/* App section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>App</Text>
-          <View style={styles.sectionCard}>
-            <SettingsRow
-              icon="📊"
-              label="App version"
-              value="1.0.0"
-            />
-            <View style={styles.rowDivider} />
-            <SettingsRow
-              icon="📊"
-              label="Scans"
-              value="Unlimited"
-            />
-          </View>
-        </View>
-
-        {/* Legal section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Legal</Text>
-          <View style={styles.sectionCard}>
-            <SettingsRow
-              icon="📄"
-              label="Privacy policy"
-              showArrow
-              onPress={() => Alert.alert('Coming soon')}
-            />
-            <View style={styles.rowDivider} />
-            <SettingsRow
-              icon="📋"
-              label="Terms of service"
-              showArrow
-              onPress={() => Alert.alert('Coming soon')}
-            />
-          </View>
-        </View>
-
-        {/* Danger zone */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Danger zone</Text>
-          <View style={styles.sectionCard}>
-            <SettingsRow
-              icon="🗑"
-              label="Delete account"
-              labelStyle={{ color: '#E24B4A' }}
-              onPress={() => setDeleteModal(true)}
-              showArrow
-            />
+        {/* Change password */}
+        <View style={[styles.settingCard, Shadows.sm]}>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: Colors.warningLight }]}>
+              <Lock size={18} color={Colors.warning} weight="fill" />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingLabel}>Password</Text>
+              {editingPassword ? (
+                <View style={styles.passwordRow}>
+                  <TextInput
+                    style={[styles.settingInput, { flex: 1 }]}
+                    value={newPassword}
+                    onChangeText={t => { setNewPassword(t); setPasswordError('') }}
+                    secureTextEntry={!showPassword}
+                    autoFocus
+                    placeholder="New password"
+                    placeholderTextColor={Colors.textTertiary}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    {showPassword
+                      ? <EyeSlash size={16} color={Colors.textTertiary} />
+                      : <Eye size={16} color={Colors.textTertiary} />
+                    }
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text style={styles.settingValue}>••••••••</Text>
+              )}
+              {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+            </View>
+            {editingPassword ? (
+              <View style={styles.editActions}>
+                <TouchableOpacity
+                  onPress={() => { setEditingPassword(false); setPasswordError(''); setNewPassword('') }}
+                  style={styles.cancelIconBtn}
+                >
+                  <X size={14} color={Colors.textTertiary} weight="bold" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveBtn}
+                  onPress={handleChangePassword}
+                  disabled={passwordSaving}
+                >
+                  {passwordSaving
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={styles.saveBtnText}>Save</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setEditingPassword(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <PencilSimple size={18} color={Colors.textTertiary} weight="regular" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
-        {/* Sign out */}
+        {/* ─── Preferences section ─── */}
+        <SectionHeader title="Preferences" />
+
+        <SettingRow
+          icon={<Leaf size={18} color={Colors.primary} weight="fill" />}
+          iconBg={Colors.primaryLight}
+          label="Dietary preferences"
+          sublabel="Allergies, conditions, diet type"
+          onPress={() => setShowDietaryModal(true)}
+        />
+
+        {/* ─── Legal section ─── */}
+        <SectionHeader title="Legal" />
+
+        <SettingRow
+          icon={<ShieldCheck size={18} color={Colors.info} weight="fill" />}
+          iconBg={Colors.infoLight}
+          label="Privacy policy"
+          onPress={() => Alert.alert('Coming soon', 'Privacy policy will be available before launch.')}
+        />
+        <SettingRow
+          icon={<FileText size={18} color={Colors.info} weight="fill" />}
+          iconBg={Colors.infoLight}
+          label="Terms of service"
+          onPress={() => Alert.alert('Coming soon', 'Terms of service will be available before launch.')}
+        />
+
+        {/* ─── About section ─── */}
+        <SectionHeader title="About" />
+
+        <View style={[styles.settingCard, Shadows.sm]}>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: Colors.surfaceSecondary }]}>
+              <Info size={18} color={Colors.textSecondary} weight="fill" />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingLabel}>App version</Text>
+              <Text style={styles.settingValue}>v{appVersion}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ─── Sign out ─── */}
         <TouchableOpacity
-          style={styles.signOutButton}
+          style={[styles.signOutBtn, Shadows.sm]}
           onPress={handleSignOut}
-          disabled={signingOut}
           activeOpacity={0.8}
         >
-          {signingOut ? (
-            <ActivityIndicator color="#E24B4A" />
-          ) : (
-            <Text style={styles.signOutText}>Sign out</Text>
-          )}
+          <SignOut size={18} color={Colors.danger} weight="bold" />
+          <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
 
-        <Text style={styles.footer}>INGRYN · Know what's inside.</Text>
+        {/* ─── Delete account ─── */}
+        <TouchableOpacity
+          style={styles.deleteAccountBtn}
+          onPress={confirmDeleteAccount}
+        >
+          <Trash size={14} color={Colors.textTertiary} weight="regular" />
+          <Text style={styles.deleteAccountText}>Delete account</Text>
+        </TouchableOpacity>
+
       </ScrollView>
 
-      {/* Edit name modal */}
-      <EditNameModal
-        visible={editNameModal}
-        currentName={fullName}
-        onClose={() => setEditNameModal(false)}
-      />
-
-      {/* Change password modal */}
-      <ChangePasswordModal
-        visible={changePasswordModal}
-        onClose={() => setChangePasswordModal(false)}
-      />
-
-      {/* Delete account modal */}
-      <DeleteAccountModal
-        visible={deleteModal}
-        onClose={() => setDeleteModal(false)}
-      />
       <DietaryPreferencesModal
-        visible={dietaryModal}
-        onClose={() => setDietaryModal(false)}
+        visible={showDietaryModal}
+        onClose={() => setShowDietaryModal(false)}
       />
     </View>
   )
 }
 
-// ── Edit Name Modal ──
-function EditNameModal({
-  visible, currentName, onClose
-}: { visible: boolean; currentName: string; onClose: () => void }) {
-  const { user, setUser } = useAuthStore()
-  const [name, setName] = useState(currentName)
-  const [loading, setLoading] = useState(false)
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-  async function handleSave() {
-    if (!name.trim()) {
-      Alert.alert('Error', 'Name cannot be empty')
-      return
-    }
-    setLoading(true)
-    const { data, error } = await supabase.auth.updateUser({
-      data: { full_name: name.trim() }
-    })
-    setLoading(false)
-    if (error) {
-      Alert.alert('Error', error.message)
-    } else {
-      if (data.user) setUser(data.user)
-      Alert.alert('Success', 'Name updated successfully')
-      onClose()
-    }
-  }
-
+function SectionHeader({ title }: { title: string }) {
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={modalStyles.overlay}>
-        <View style={modalStyles.sheet}>
-          <View style={modalStyles.handle} />
-          <Text style={modalStyles.title}>Edit name</Text>
-          <Text style={modalStyles.label}>Full name</Text>
-          <TextInput
-            style={modalStyles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Your name"
-            placeholderTextColor="#333"
-            autoCapitalize="words"
-            autoFocus
-          />
-          <TouchableOpacity
-            style={[modalStyles.primaryButton, loading && modalStyles.disabled]}
-            onPress={handleSave}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color="#080808" />
-              : <Text style={modalStyles.primaryButtonText}>Save changes</Text>
-            }
-          </TouchableOpacity>
-          <TouchableOpacity style={modalStyles.cancelButton} onPress={onClose}>
-            <Text style={modalStyles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
+    <Text style={styles.sectionHeader}>{title}</Text>
   )
 }
 
-// ── Change Password Modal ──
-function ChangePasswordModal({
-  visible, onClose
-}: { visible: boolean; onClose: () => void }) {
-  const [current, setCurrent] = useState('')
-  const [newPass, setNewPass] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  async function handleChange() {
-    if (!newPass || !confirm) {
-      Alert.alert('Error', 'Please fill in all fields')
-      return
-    }
-    if (newPass.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters')
-      return
-    }
-    if (newPass !== confirm) {
-      Alert.alert('Error', 'Passwords do not match')
-      return
-    }
-    setLoading(true)
-    const { error } = await supabase.auth.updateUser({ password: newPass })
-    setLoading(false)
-    if (error) {
-      Alert.alert('Error', error.message)
-    } else {
-      Alert.alert('Success', 'Password updated successfully')
-      setCurrent('')
-      setNewPass('')
-      setConfirm('')
-      onClose()
-    }
-  }
-
-  return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={modalStyles.overlay}>
-        <View style={modalStyles.sheet}>
-          <View style={modalStyles.handle} />
-          <Text style={modalStyles.title}>Change password</Text>
-          <Text style={modalStyles.label}>New password</Text>
-          <TextInput
-            style={modalStyles.input}
-            value={newPass}
-            onChangeText={setNewPass}
-            placeholder="Min. 6 characters"
-            placeholderTextColor="#333"
-            secureTextEntry
-            autoCapitalize="none"
-            autoFocus
-          />
-          <Text style={modalStyles.label}>Confirm new password</Text>
-          <TextInput
-            style={[modalStyles.input, { marginBottom: 24 }]}
-            value={confirm}
-            onChangeText={setConfirm}
-            placeholder="Repeat new password"
-            placeholderTextColor="#333"
-            secureTextEntry
-            autoCapitalize="none"
-          />
-          <TouchableOpacity
-            style={[modalStyles.primaryButton, loading && modalStyles.disabled]}
-            onPress={handleChange}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color="#080808" />
-              : <Text style={modalStyles.primaryButtonText}>Update password</Text>
-            }
-          </TouchableOpacity>
-          <TouchableOpacity style={modalStyles.cancelButton} onPress={onClose}>
-            <Text style={modalStyles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  )
-}
-
-// ── Delete Account Modal ──
-function DeleteAccountModal({
-  visible, onClose
-}: { visible: boolean; onClose: () => void }) {
-  const [confirm, setConfirm] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  async function handleDelete() {
-    if (confirm !== 'DELETE') {
-      Alert.alert('Error', 'Type DELETE to confirm')
-      return
-    }
-    setLoading(true)
-    const { error } = await supabase.rpc('delete_user')
-    setLoading(false)
-    if (error) {
-      Alert.alert('Error', error.message)
-    } else {
-      await supabase.auth.signOut()
-    }
-  }
-
-  return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={modalStyles.overlay}>
-        <View style={modalStyles.sheet}>
-          <View style={modalStyles.handle} />
-          <Text style={modalStyles.title}>Delete account</Text>
-          <Text style={modalStyles.deleteWarning}>
-            This will permanently delete your account and all scan history. This action cannot be undone.
-          </Text>
-          <Text style={modalStyles.label}>Type DELETE to confirm</Text>
-          <TextInput
-            style={modalStyles.input}
-            value={confirm}
-            onChangeText={setConfirm}
-            placeholder="DELETE"
-            placeholderTextColor="#333"
-            autoCapitalize="characters"
-            autoFocus
-          />
-          <TouchableOpacity
-            style={[modalStyles.deleteButton, loading && modalStyles.disabled]}
-            onPress={handleDelete}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={modalStyles.deleteButtonText}>Delete my account</Text>
-            }
-          </TouchableOpacity>
-          <TouchableOpacity style={modalStyles.cancelButton} onPress={onClose}>
-            <Text style={modalStyles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-
-        </View>
-      </View>
-    </Modal>
-  )
-}
-
-// ── Settings Row ──
-function SettingsRow({
-  icon, label, value, onPress, showArrow, labelStyle
-}: {
-  icon: string
+function SettingRow({ icon, iconBg, label, sublabel, onPress }: {
+  icon: React.ReactNode
+  iconBg: string
   label: string
-  value?: string
-  onPress?: () => void
-  showArrow?: boolean
-  labelStyle?: object
+  sublabel?: string
+  onPress: () => void
 }) {
   return (
     <TouchableOpacity
-      style={styles.row}
+      style={[styles.settingCard, Shadows.sm]}
       onPress={onPress}
-      disabled={!onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
-      <Text style={styles.rowIcon}>{icon}</Text>
-      <Text style={[styles.rowLabel, labelStyle]}>{label}</Text>
-      <View style={styles.rowRight}>
-        {value && <Text style={styles.rowValue}>{value}</Text>}
-        {showArrow && <Text style={styles.rowArrow}>›</Text>}
+      <View style={styles.settingRow}>
+        <View style={[styles.settingIcon, { backgroundColor: iconBg }]}>{icon}</View>
+        <View style={styles.settingContent}>
+          <Text style={styles.settingLabel}>{label}</Text>
+          {sublabel && <Text style={styles.settingSubLabel}>{sublabel}</Text>}
+        </View>
+        <CaretRight size={16} color={Colors.textTertiary} weight="bold" />
       </View>
     </TouchableOpacity>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#080808' },
-  bgCircle: {
-    position: 'absolute', width: 300, height: 300,
-    borderRadius: 150, backgroundColor: '#00E5A006',
-    top: -80, right: -80,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 100 },
-  header: { paddingTop: 60, paddingHorizontal: 24, marginBottom: 24 },
-  headerTitle: { fontSize: 32, fontWeight: '800', color: '#fff' },
-  profileCard: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 24, backgroundColor: '#111',
-    borderRadius: 16, borderWidth: 1, borderColor: '#1a1a1a',
-    padding: 16, marginBottom: 28, gap: 14,
-  },
-  avatar: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: '#00E5A015', borderWidth: 1,
-    borderColor: '#00E5A030', alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText: { fontSize: 20, fontWeight: '700', color: '#00E5A0' },
-  profileInfo: { flex: 1, gap: 3 },
-  profileName: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  profileEmail: { fontSize: 13, color: '#444' },
-  section: { paddingHorizontal: 24, marginBottom: 24, gap: 8 },
-  sectionLabel: {
-    fontSize: 12, fontWeight: '600', color: '#444',
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4,
-  },
-  sectionCard: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1a1a1a', overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 15, gap: 12,
-  },
-  rowDivider: { height: 1, backgroundColor: '#1a1a1a', marginLeft: 44 },
-  rowIcon: { fontSize: 16, width: 24, textAlign: 'center' },
-  rowLabel: { flex: 1, fontSize: 15, color: '#ccc', fontWeight: '400' },
-  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  rowValue: { fontSize: 13, color: '#444' },
-  rowArrow: { fontSize: 18, color: '#333' },
-  signOutButton: {
-    marginHorizontal: 24, backgroundColor: '#E24B4A15',
-    borderWidth: 1, borderColor: '#E24B4A30',
-    borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', marginBottom: 24,
-  },
-  signOutText: { fontSize: 15, fontWeight: '600', color: '#E24B4A' },
-  footer: { textAlign: 'center', fontSize: 12, color: '#222', marginBottom: 12 },
-})
 
-const modalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1, backgroundColor: '#000000aa',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#111', borderTopLeftRadius: 24,
-    borderTopRightRadius: 24, padding: 24,
-    borderWidth: 1, borderColor: '#1a1a1a',
-  },
-  handle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: '#333', alignSelf: 'center', marginBottom: 24,
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 48,
+    paddingHorizontal: Spacing['2xl'],
+    paddingBottom: Spacing.lg,
   },
   title: {
-    fontSize: 22, fontWeight: '700',
-    color: '#fff', marginBottom: 20,
+    fontFamily: Fonts.extrabold,
+    fontSize: FontSizes['5xl'],
+    color: Colors.textPrimary,
   },
-  label: {
-    fontSize: 12, color: '#888', fontWeight: '500',
-    letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8,
+
+  // Profile card
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius['2xl'],
+    marginHorizontal: Spacing['2xl'],
+    padding: Spacing.xl,
+    gap: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
-  input: {
-    backgroundColor: '#1a1a1a', borderWidth: 1,
-    borderColor: '#222', borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, color: '#fff', marginBottom: 16,
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  primaryButton: {
-    backgroundColor: '#00E5A0', borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginBottom: 12,
+  avatarInitial: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes['2xl'],
+    color: '#fff',
   },
-  primaryButtonText: { fontSize: 16, fontWeight: '700', color: '#080808' },
-  deleteButton: {
-    backgroundColor: '#E24B4A', borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginBottom: 12,
+  profileInfo: { flex: 1 },
+  profileName: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.lg,
+    color: Colors.textPrimary,
   },
-  deleteButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  cancelButton: { alignItems: 'center', paddingVertical: 12 },
-  cancelText: { fontSize: 15, color: '#555' },
-  disabled: { opacity: 0.6 },
-  deleteWarning: {
-    fontSize: 14, color: '#E24B4A',
-    lineHeight: 22, marginBottom: 20,
-    backgroundColor: '#E24B4A15', padding: 12,
-    borderRadius: 10,
+  profileEmail: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  profileBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+  },
+  profileBadgeText: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.xs,
+    color: Colors.primary,
+  },
+
+  // Success banner
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.successLight,
+    borderRadius: Radius.lg,
+    marginHorizontal: Spacing['2xl'],
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  successText: {
+    fontFamily: Fonts.medium,
+    fontSize: FontSizes.sm,
+    color: Colors.success,
+  },
+
+  // Section header
+  sectionHeader: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.sm,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginHorizontal: Spacing['2xl'],
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.md,
+  },
+
+  // Setting cards
+  settingCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    marginHorizontal: Spacing['2xl'],
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+  },
+  settingIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingContent: { flex: 1, gap: 2 },
+  settingLabel: {
+    fontFamily: Fonts.semibold,
+    fontSize: FontSizes.base,
+    color: Colors.textPrimary,
+  },
+  settingValue: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+  },
+  settingSubLabel: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.xs,
+    color: Colors.textTertiary,
+  },
+  settingInput: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.base,
+    color: Colors.textPrimary,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.primary,
+    paddingBottom: 4,
+    marginTop: 2,
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cancelIconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: Radius.full,
+    minWidth: 52,
+    alignItems: 'center',
+  },
+  saveBtnText: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.sm,
+    color: '#fff',
+  },
+  errorText: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.xs,
+    color: Colors.danger,
+    marginTop: 4,
+  },
+
+  // Sign out / delete
+  signOutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginHorizontal: Spacing['2xl'],
+    marginTop: Spacing['2xl'],
+    backgroundColor: Colors.dangerLight,
+    borderRadius: Radius.xl,
+    paddingVertical: Spacing.lg,
+  },
+  signOutText: {
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.base,
+    color: Colors.danger,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: Spacing.xl,
+    paddingBottom: Spacing.xl,
+  },
+  deleteAccountText: {
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.sm,
+    color: Colors.textTertiary,
+    textDecorationLine: 'underline',
   },
 })

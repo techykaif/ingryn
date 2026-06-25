@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { useDietaryPreferences } from './useDietaryPreferences'
+// removed unused import from './useDietaryPreferences'
 import { analyzeIngredients, IngredientAnalysis, UserPreferences } from '@/lib/gemini'
 
 export async function saveAnalysis(
@@ -135,6 +135,7 @@ async function saveIngredients(analysis: IngredientAnalysis[]): Promise<string[]
         aliases: ingredient.aliases || [],
         category: ingredient.category || 'Unknown',
         description: ingredient.description || '',
+        personal_flag: ingredient.personal_flag ?? null,
         safety_level: ingredient.safety_level || 'unknown',
         health_concerns: ingredient.health_concerns || [],
         country_status: ingredient.country_status || {},

@@ -1,15 +1,21 @@
 import { useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator, Alert,
-  TextInput, RefreshControl
+  FlatList, TextInput, ActivityIndicator,
+  Alert, Platform
 } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
+import {
+  MagnifyingGlass, ClockCounterClockwise, Trash,
+  ArrowRight, Warning, CheckCircle, ShieldWarning,
+  Scan as ScanIcon, X
+} from 'phosphor-react-native'
 
-type Scan = {
+type ScanItem = {
   id: string
   label: string | null
   safety_score: number | null
@@ -20,65 +26,82 @@ type Scan = {
 export default function HistoryScreen() {
   const router = useRouter()
   const { user } = useAuthStore()
-  const [scans, setScans] = useState<Scan[]>([])
+  const [scans, setScans] = useState<ScanItem[]>([])
+  const [filtered, setFiltered] = useState<ScanItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [search, setSearch] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchScans()
-    }, [])
-  )
-
-  async function fetchScans() {
+  const fetchScans = useCallback(async () => {
+    setLoading(true)
     try {
       const { data, error } = await supabase
         .from('scans')
-        .select('id, label, safety_score, created_at, ingredient_ids')
+        .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
       setScans(data || [])
-    } catch (e: any) {
-      Alert.alert('Error', e.message)
+      setFiltered(data || [])
+    } catch (e) {
+      console.error('History fetch error:', e)
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
+  }, [user])
+
+  useFocusEffect(useCallback(() => { fetchScans() }, [fetchScans]))
+
+  function handleSearch(text: string) {
+    setSearchQuery(text)
+    if (!text.trim()) { setFiltered(scans); return }
+    const q = text.toLowerCase()
+    setFiltered(scans.filter(s => (s.label || '').toLowerCase().includes(q)))
   }
 
-  async function deleteScan(id: string) {
+  function clearSearch() {
+    setSearchQuery('')
+    setFiltered(scans)
+  }
+
+  function confirmDelete(scanId: string) {
     Alert.alert(
       'Delete scan',
-      'This will permanently remove this scan from your history.',
+      'This scan will be permanently removed from your history.',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(id)
-            const { error } = await supabase.from('scans').delete().eq('id', id)
-            setDeleting(null)
-            if (error) {
-              Alert.alert('Error', error.message)
-            } else {
-              setScans(prev => prev.filter(s => s.id !== id))
-            }
-          }
-        }
+        { text: 'Delete', style: 'destructive', onPress: () => deleteScan(scanId) },
       ]
     )
   }
 
+  async function deleteScan(scanId: string) {
+    setDeleting(scanId)
+    try {
+      const { error } = await supabase
+        .from('scans')
+        .delete()
+        .eq('id', scanId)
+        .eq('user_id', user?.id)
+      if (error) throw error
+      const updated = scans.filter(s => s.id !== scanId)
+      setScans(updated)
+      setFiltered(updated.filter(s =>
+        !searchQuery || (s.label || '').toLowerCase().includes(searchQuery.toLowerCase())
+      ))
+    } catch (e) {
+      console.error('Delete error:', e)
+    } finally {
+      setDeleting(null)
+    }
+  }
+
   const getScoreColor = (score: number | null) => {
-    if (score === null) return '#555'
-    if (score >= 75) return '#00E5A0'
-    if (score >= 45) return '#EF9F27'
-    return '#E24B4A'
+    if (score === null) return Colors.unknown
+    if (score >= 75) return Colors.safe
+    if (score >= 45) return Colors.caution
+    return Colors.harmful
   }
 
   const getScoreLabel = (score: number | null) => {
@@ -91,244 +114,184 @@ export default function HistoryScreen() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
     const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    if (days === 0) return 'Today'
-    if (days === 1) return 'Yesterday'
-    if (days < 7) return `${days} days ago`
+    const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+    if (diff === 0) return 'Today'
+    if (diff === 1) return 'Yesterday'
+    if (diff < 7) return `${diff} days ago`
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  const filtered = scans.filter(s =>
-    !search.trim() ||
-    (s.label || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const renderItem = ({ item }: { item: ScanItem }) => {
+    const color = getScoreColor(item.safety_score)
+    const label = getScoreLabel(item.safety_score)
+    const isHarmful = label === 'Harmful'
+    const isCaution = label === 'Caution'
 
-  const groupByDate = (scans: Scan[]) => {
-    const groups: Record<string, Scan[]> = {}
-    scans.forEach(scan => {
-      const date = new Date(scan.created_at)
-      const now = new Date()
-      const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-      const key = diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : diff < 7 ? 'This week' : 'Earlier'
-      if (!groups[key]) groups[key] = []
-      groups[key].push(scan)
-    })
-    return groups
-  }
-
-  const grouped = groupByDate(filtered)
-  const groupOrder = ['Today', 'Yesterday', 'This week', 'Earlier']
-
-  if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#00E5A0" size="large" />
-      </View>
+      <TouchableOpacity
+        style={[styles.card, Shadows.sm]}
+        onPress={() => router.push(`/results/${item.id}`)}
+        activeOpacity={0.8}
+      >
+        <View style={[styles.scoreRingOuter, { borderColor: `${color}30` }]}>
+          <View style={[styles.scoreRingInner, { backgroundColor: `${color}15` }]}>
+            <Text style={[styles.scoreNum, { color }]}>
+              {item.safety_score ?? '?'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardLabel} numberOfLines={1}>
+            {item.label || 'Unnamed scan'}
+          </Text>
+          <Text style={styles.cardMeta}>
+            {item.ingredient_ids?.length || 0} ingredients · {formatDate(item.created_at)}
+          </Text>
+          <View style={[styles.badge, { backgroundColor: `${color}15` }]}>
+            {isHarmful && <ShieldWarning size={10} color={color} weight="fill" />}
+            {isCaution && <Warning size={10} color={color} weight="fill" />}
+            {!isHarmful && !isCaution && <CheckCircle size={10} color={color} weight="fill" />}
+            <Text style={[styles.badgeText, { color }]}>{label}</Text>
+          </View>
+        </View>
+
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={() => confirmDelete(item.id)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {deleting === item.id
+              ? <ActivityIndicator size="small" color={Colors.danger} />
+              : <Trash size={18} color={Colors.textTertiary} weight="regular" />
+            }
+          </TouchableOpacity>
+          <ArrowRight size={16} color={Colors.textTertiary} weight="bold" />
+        </View>
+      </TouchableOpacity>
     )
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
-      <View style={styles.bgCircle} />
+      <StatusBar style="dark" />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); fetchScans() }}
-            tintColor="#00E5A0"
+      <View style={styles.header}>
+        <Text style={styles.title}>History</Text>
+        <Text style={styles.subtitle}>
+          {scans.length} scan{scans.length !== 1 ? 's' : ''}
+        </Text>
+      </View>
+
+      <View style={styles.searchWrapper}>
+        <View style={styles.searchBar}>
+          <MagnifyingGlass size={18} color={Colors.textTertiary} weight="regular" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search scans..."
+            placeholderTextColor={Colors.textTertiary}
+            value={searchQuery}
+            onChangeText={handleSearch}
+            returnKeyType="search"
+            autoCorrect={false}
           />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>History</Text>
-          <Text style={styles.headerCount}>
-            {scans.length} {scans.length === 1 ? 'scan' : 'scans'}
-          </Text>
-        </View>
-
-        {/* Search */}
-        {scans.length > 0 && (
-          <View style={styles.searchContainer}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={styles.searchInput}
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search scans..."
-              placeholderTextColor="#333"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
-                <Text style={styles.clearBtnText}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* Empty state */}
-        {scans.length === 0 && (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Text style={styles.emptyIconText}>⬡</Text>
-            </View>
-            <Text style={styles.emptyTitle}>No scans yet</Text>
-            <Text style={styles.emptySubtitle}>
-              Your scan history will appear here after you scan your first product
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyBtn}
-              onPress={() => router.push('/(tabs)/scanner')}
-            >
-              <Text style={styles.emptyBtnText}>Start scanning</Text>
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X size={16} color={Colors.textTertiary} weight="bold" />
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+        </View>
+      </View>
 
-        {/* No search results */}
-        {scans.length > 0 && filtered.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No results</Text>
-            <Text style={styles.emptySubtitle}>No scans match "{search}"</Text>
-          </View>
-        )}
-
-        {/* Grouped scans */}
-        {groupOrder.map(group => {
-          if (!grouped[group]) return null
-          return (
-            <View key={group} style={styles.group}>
-              <Text style={styles.groupLabel}>{group}</Text>
-              {grouped[group].map(scan => (
-                <TouchableOpacity
-                  key={scan.id}
-                  style={styles.scanCard}
-                  onPress={() => router.push(`/results/${scan.id}`)}
-                  onLongPress={() => deleteScan(scan.id)}
-                  activeOpacity={0.8}
-                >
-                  {deleting === scan.id ? (
-                    <ActivityIndicator color="#00E5A0" size="small" />
-                  ) : (
-                    <>
-                      <View style={[styles.scoreRing, { borderColor: getScoreColor(scan.safety_score) }]}>
-                        <Text style={[styles.scoreText, { color: getScoreColor(scan.safety_score) }]}>
-                          {scan.safety_score ?? '?'}
-                        </Text>
-                      </View>
-                      <View style={styles.scanInfo}>
-                        <Text style={styles.scanLabel} numberOfLines={1}>
-                          {scan.label || 'Unnamed scan'}
-                        </Text>
-                        <Text style={styles.scanMeta}>
-                          {scan.ingredient_ids?.length || 0} ingredients · {formatDate(scan.created_at)}
-                        </Text>
-                      </View>
-                      <View style={styles.scanRight}>
-                        <View style={[
-                          styles.scoreBadge,
-                          { backgroundColor: `${getScoreColor(scan.safety_score)}15` }
-                        ]}>
-                          <Text style={[styles.scoreBadgeText, { color: getScoreColor(scan.safety_score) }]}>
-                            {getScoreLabel(scan.safety_score)}
-                          </Text>
-                        </View>
-                        <Text style={styles.chevron}>›</Text>
-                      </View>
-                    </>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )
-        })}
-
-        <Text style={styles.hint}>Long press a scan to delete it</Text>
-      </ScrollView>
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator color={Colors.primary} size="large" />
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.centered}>
+          {searchQuery ? (
+            <>
+              <MagnifyingGlass size={48} color={Colors.borderStrong} weight="regular" />
+              <Text style={styles.emptyTitle}>No results</Text>
+              <Text style={styles.emptySubtitle}>No scans match "{searchQuery}"</Text>
+              <TouchableOpacity style={styles.clearBtn} onPress={clearSearch}>
+                <Text style={styles.clearBtnText}>Clear search</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <ClockCounterClockwise size={48} color={Colors.borderStrong} weight="regular" />
+              <Text style={styles.emptyTitle}>No scans yet</Text>
+              <Text style={styles.emptySubtitle}>Your scan history will appear here</Text>
+              <TouchableOpacity
+                style={styles.scanNowBtn}
+                onPress={() => router.push('/(tabs)/scanner')}
+              >
+                <ScanIcon size={16} color={Colors.primary} weight="bold" />
+                <Text style={styles.scanNowText}>Start scanning</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#080808' },
-  loading: { flex: 1, backgroundColor: '#080808', alignItems: 'center', justifyContent: 'center' },
-  bgCircle: {
-    position: 'absolute', width: 300, height: 300, borderRadius: 150,
-    backgroundColor: '#00E5A006', top: -80, right: -80,
-  },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 100 },
+  container: { flex: 1, backgroundColor: Colors.background },
   header: {
-    flexDirection: 'row', alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: 24, marginBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 48,
+    paddingHorizontal: Spacing['2xl'],
+    paddingBottom: Spacing.lg,
   },
-  headerTitle: { fontSize: 32, fontWeight: '800', color: '#fff' },
-  headerCount: { fontSize: 14, color: '#444' },
-  searchContainer: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 24, backgroundColor: '#111',
-    borderRadius: 12, borderWidth: 1, borderColor: '#1a1a1a',
-    paddingHorizontal: 14, marginBottom: 24, gap: 10,
+  title: { fontFamily: Fonts.extrabold, fontSize: FontSizes['5xl'], color: Colors.textPrimary },
+  subtitle: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary, marginTop: 4 },
+  searchWrapper: { paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.lg },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
+    borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+    gap: Spacing.md, ...Shadows.sm,
   },
-  searchIcon: { fontSize: 16 },
-  searchInput: { flex: 1, fontSize: 15, color: '#fff', paddingVertical: 14 },
-  clearBtn: { padding: 4 },
-  clearBtnText: { fontSize: 13, color: '#444' },
-  emptyState: {
-    alignItems: 'center', paddingVertical: 60,
-    paddingHorizontal: 40, gap: 12,
+  searchInput: {
+    flex: 1, fontFamily: Fonts.regular, fontSize: FontSizes.base,
+    color: Colors.textPrimary, padding: 0,
   },
-  emptyIcon: {
-    width: 72, height: 72, borderRadius: 20,
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#1a1a1a',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+  list: { paddingHorizontal: Spacing['2xl'], paddingBottom: 100 },
+  card: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
+    borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md, gap: Spacing.md,
   },
-  emptyIconText: { fontSize: 32, color: '#00E5A0' },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
-  emptySubtitle: {
-    fontSize: 14, color: '#444', textAlign: 'center', lineHeight: 22,
+  scoreRingOuter: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  scoreRingInner: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  scoreNum: { fontFamily: Fonts.extrabold, fontSize: FontSizes.base },
+  cardInfo: { flex: 1, gap: 4 },
+  cardLabel: { fontFamily: Fonts.semibold, fontSize: FontSizes.md, color: Colors.textPrimary },
+  cardMeta: { fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.textTertiary },
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full, marginTop: 2,
   },
-  emptyBtn: {
-    marginTop: 8, backgroundColor: '#00E5A015',
-    borderWidth: 1, borderColor: '#00E5A030',
-    paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12,
+  badgeText: { fontFamily: Fonts.bold, fontSize: FontSizes.xs },
+  cardActions: { alignItems: 'center', gap: Spacing.md },
+  deleteBtn: {
+    width: 32, height: 32, borderRadius: 10, backgroundColor: Colors.surfaceSecondary,
+    alignItems: 'center', justifyContent: 'center',
   },
-  emptyBtnText: { fontSize: 14, fontWeight: '600', color: '#00E5A0' },
-  group: { paddingHorizontal: 24, marginBottom: 24 },
-  groupLabel: {
-    fontSize: 12, fontWeight: '600', color: '#444',
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12,
-  },
-  scanCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1a1a1a',
-    padding: 16, marginBottom: 8, gap: 12,
-    minHeight: 72,
-  },
-  scoreRing: {
-    width: 44, height: 44, borderRadius: 22,
-    borderWidth: 2, alignItems: 'center', justifyContent: 'center',
-  },
-  scoreText: { fontSize: 13, fontWeight: '700' },
-  scanInfo: { flex: 1, gap: 4 },
-  scanLabel: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  scanMeta: { fontSize: 12, color: '#444' },
-  scanRight: { alignItems: 'center', gap: 6 },
-  scoreBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  scoreBadgeText: { fontSize: 11, fontWeight: '700' },
-  chevron: { fontSize: 18, color: '#333' },
-  hint: {
-    textAlign: 'center', fontSize: 11,
-    color: '#222', paddingBottom: 8,
-  },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, paddingHorizontal: Spacing['3xl'] },
+  emptyTitle: { fontFamily: Fonts.bold, fontSize: FontSizes['2xl'], color: Colors.textPrimary, marginTop: Spacing.md },
+  emptySubtitle: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  clearBtn: { marginTop: Spacing.sm, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.primaryLight, borderRadius: Radius.full },
+  clearBtnText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.primary },
+  scanNowBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.sm, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.primaryLight, borderRadius: Radius.full },
+  scanNowText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.primary },
 })

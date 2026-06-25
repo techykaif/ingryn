@@ -3,21 +3,41 @@ import { Stack, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View, ActivityIndicator } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import 'react-native-url-polyfill/auto'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/index'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { Colors } from '@/constants/theme'
+import {
+  useFonts,
+  PlusJakartaSans_200ExtraLight,
+  PlusJakartaSans_300Light,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+  PlusJakartaSans_400Regular_Italic,
+  PlusJakartaSans_500Medium_Italic,
+  PlusJakartaSans_700Bold_Italic,
+} from '@expo-google-fonts/plus-jakarta-sans'
+
+const ONBOARDING_KEY = 'ingryn_onboarding_complete'
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, setUser } = useAuthStore()
-  const [loading, setLoading] = useState(true)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [onboardingComplete, setOnboardingComplete] = useState(false)
+  const [onboardingChecked, setOnboardingChecked] = useState(false)
   const router = useRouter()
   const segments = useSegments()
 
+  // ─── Auth listener ─────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      setLoading(false)
+      setAuthLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -27,31 +47,50 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  // ─── Re-read onboarding flag on every segment change ───────────────
+  // Direct AsyncStorage read avoids the two-instance hook problem
   useEffect(() => {
-    if (loading) return
+    AsyncStorage.getItem(ONBOARDING_KEY).then(value => {
+      setOnboardingComplete(value !== null)
+      setOnboardingChecked(true)
+    })
+  }, [segments])
+
+  // ─── Routing logic ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (authLoading || !onboardingChecked) return
 
     const inAuthGroup = segments[0] === '(auth)'
     const currentSegment = segments[1]
 
-    // Never interrupt onboarding
+    // Never interrupt the onboarding screen itself
     if (currentSegment === 'onboarding') return
 
-    if (!user && !inAuthGroup) {
-      router.replace('/(auth)/welcome')
-    } else if (user && inAuthGroup) {
-      router.replace('/(tabs)/home')
+    if (user) {
+      if (inAuthGroup) {
+        router.replace('/(tabs)/home')
+      }
+    } else {
+      // KEY: only redirect to onboarding if NOT already in auth group
+      // Without this, navigating onboarding→welcome bounces back
+      if (!onboardingComplete && !inAuthGroup) {
+        router.replace('/(auth)/onboarding')
+      } else if (onboardingComplete && !inAuthGroup) {
+        router.replace('/(auth)/welcome')
+      }
+      // If inAuthGroup → do nothing, let screens handle their own navigation
     }
-  }, [user, segments, loading])
+  }, [user, segments, authLoading, onboardingChecked, onboardingComplete])
 
-  if (loading) {
+  if (authLoading || !onboardingChecked) {
     return (
       <View style={{
         flex: 1,
-        backgroundColor: '#080808',
+        backgroundColor: Colors.background,
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
       }}>
-        <ActivityIndicator color="#00E5A0" size="large" />
+        <ActivityIndicator color={Colors.primary} size="large" />
       </View>
     )
   }
@@ -60,9 +99,35 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_200ExtraLight,
+    PlusJakartaSans_300Light,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+    PlusJakartaSans_400Regular_Italic,
+    PlusJakartaSans_500Medium_Italic,
+    PlusJakartaSans_700Bold_Italic,
+  })
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{
+        flex: 1,
+        backgroundColor: Colors.background,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <ActivityIndicator color={Colors.primary} size="large" />
+      </View>
+    )
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <ErrorBoundary>
         <AuthGate>
           <Stack

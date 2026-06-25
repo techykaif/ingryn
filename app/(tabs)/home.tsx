@@ -1,17 +1,21 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, RefreshControl, ActivityIndicator, Dimensions
+  ScrollView, RefreshControl, ActivityIndicator, Platform
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
-import { useFocusEffect } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
+import {
+  Scan as ScanIcon, Clock, ChartBar, Leaf,
+  ArrowRight, Warning, CheckCircle, ShieldWarning,
+  User, Sparkle
+} from 'phosphor-react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 
-const { width } = Dimensions.get('window')
-
-type Scan = {
+type ScanRecord = {
   id: string
   label: string | null
   safety_score: number | null
@@ -22,18 +26,17 @@ type Scan = {
 export default function HomeScreen() {
   const router = useRouter()
   const { user } = useAuthStore()
-  const [scans, setScans] = useState<Scan[]>([])
+  const [scans, setScans] = useState<ScanRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [firstName, setFirstName] = useState('')
+  const [totalScans, setTotalScans] = useState(0)
 
   const fetchData = useCallback(async () => {
     try {
-      // Get user profile name
       const fullName = user?.user_metadata?.full_name || user?.email || ''
       setFirstName(fullName.split(' ')[0] || 'there')
 
-      // Fetch recent scans
       const { data, error } = await supabase
         .from('scans')
         .select('id, label, safety_score, created_at, ingredient_ids')
@@ -52,6 +55,7 @@ export default function HomeScreen() {
       }))
 
       setScans(mapped)
+      setTotalScans(data?.length || 0)
     } catch (e) {
       console.error('Home fetch error:', e)
     } finally {
@@ -60,23 +64,13 @@ export default function HomeScreen() {
     }
   }, [user])
 
-  // Refresh when screen comes into focus (e.g. after a scan)
-  useFocusEffect(
-    useCallback(() => {
-      fetchData()
-    }, [fetchData])
-  )
-
-  const onRefresh = () => {
-    setRefreshing(true)
-    fetchData()
-  }
+  useFocusEffect(useCallback(() => { fetchData() }, [fetchData]))
 
   const getScoreColor = (score: number | null) => {
-    if (score === null) return '#555'
-    if (score >= 75) return '#00E5A0'
-    if (score >= 45) return '#EF9F27'
-    return '#E24B4A'
+    if (score === null) return Colors.unknown
+    if (score >= 75) return Colors.safe
+    if (score >= 45) return Colors.caution
+    return Colors.harmful
   }
 
   const getScoreLabel = (score: number | null) => {
@@ -89,37 +83,34 @@ export default function HomeScreen() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
     const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    if (days === 0) return 'Today'
-    if (days === 1) return 'Yesterday'
-    if (days < 7) return `${days} days ago`
+    const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+    if (diff === 0) return 'Today'
+    if (diff === 1) return 'Yesterday'
+    if (diff < 7) return `${diff} days ago`
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
   const getGreeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 17) return 'Good afternoon'
+    const h = new Date().getHours()
+    if (h < 12) return 'Good morning'
+    if (h < 17) return 'Good afternoon'
     return 'Good evening'
   }
+
+  const harmfulCount = scans.filter(s => s.safety_score !== null && s.safety_score < 45).length
+  const safeCount = scans.filter(s => s.safety_score !== null && s.safety_score >= 75).length
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color="#00E5A0" size="large" />
+        <ActivityIndicator color={Colors.primary} size="large" />
       </View>
     )
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
-
-      {/* Background accents */}
-      <View style={styles.bgCircle1} />
-      <View style={styles.bgCircle2} />
-
+      <StatusBar style="dark" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -127,83 +118,99 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#00E5A0"
+            onRefresh={() => { setRefreshing(true); fetchData() }}
+            tintColor={Colors.primary}
           />
         }
       >
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>{getGreeting()}</Text>
+            <Text style={styles.greeting}>{getGreeting()},</Text>
             <Text style={styles.name}>{firstName} 👋</Text>
           </View>
           <TouchableOpacity
-            style={styles.profileButton}
+            style={styles.avatarBtn}
             onPress={() => router.push('/(tabs)/settings')}
           >
-            <Text style={styles.profileInitial}>
-              {firstName.charAt(0).toUpperCase()}
-            </Text>
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryDark]}
+              style={styles.avatarGradient}
+            >
+              <Text style={styles.avatarInitial}>
+                {firstName.charAt(0).toUpperCase()}
+              </Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
         {/* Hero scan card */}
         <TouchableOpacity
-          style={styles.heroCard}
+          activeOpacity={0.92}
           onPress={() => router.push('/(tabs)/scanner')}
-          activeOpacity={0.9}
+          style={styles.heroWrapper}
         >
-          <View style={styles.heroCardInner}>
-            <View style={styles.heroLeft}>
-              <Text style={styles.heroTitle}>Scan Ingredients</Text>
-              <Text style={styles.heroSubtitle}>
-                Point your camera at any{'\n'}ingredient label
-              </Text>
-              <View style={styles.heroCTA}>
-                <Text style={styles.heroCTAText}>Start scanning →</Text>
+          <LinearGradient
+            colors={[Colors.primary, Colors.primaryDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroCircle1} />
+            <View style={styles.heroCircle2} />
+            <View style={styles.heroContent}>
+              <View style={styles.heroIconBox}>
+                <ScanIcon size={28} color="#fff" weight="bold" />
+              </View>
+              <View style={styles.heroText}>
+                <Text style={styles.heroTitle}>Scan Ingredients</Text>
+                <Text style={styles.heroSub}>
+                  Point at any label for{'\n'}instant AI analysis
+                </Text>
               </View>
             </View>
-            <View style={styles.heroIcon}>
-              <View style={styles.heroHex}>
-                <View style={styles.heroDot} />
-              </View>
-              <View style={styles.heroLine} />
-              <View style={styles.heroLine2} />
-              <View style={styles.heroLine3} />
+            <View style={styles.heroArrow}>
+              <ArrowRight size={20} color="rgba(255,255,255,0.8)" weight="bold" />
             </View>
-          </View>
+          </LinearGradient>
         </TouchableOpacity>
 
         {/* Stats row */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{scans.length}</Text>
-            <Text style={styles.statLabel}>Total scans</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, { color: '#E24B4A' }]}>
-              {scans.filter(s => s.safety_score !== null && s.safety_score < 45).length}
-            </Text>
-            <Text style={styles.statLabel}>Harmful found</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, { color: '#00E5A0' }]}>
-              {scans.filter(s => s.safety_score !== null && s.safety_score >= 75).length}
-            </Text>
-            <Text style={styles.statLabel}>All safe</Text>
-          </View>
+          <StatCard
+            value={totalScans}
+            label="Total Scans"
+            icon={<ChartBar size={18} color={Colors.primary} weight="fill" />}
+            color={Colors.primary}
+            bg={Colors.primaryLight}
+          />
+          <StatCard
+            value={harmfulCount}
+            label="Harmful Found"
+            icon={<Warning size={18} color={Colors.harmful} weight="fill" />}
+            color={Colors.harmful}
+            bg={Colors.harmfulLight}
+          />
+          <StatCard
+            value={safeCount}
+            label="All Safe"
+            icon={<CheckCircle size={18} color={Colors.safe} weight="fill" />}
+            color={Colors.safe}
+            bg={Colors.safeLight}
+          />
         </View>
 
         {/* Recent scans */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent scans</Text>
+            <Text style={styles.sectionTitle}>Recent Scans</Text>
             {scans.length > 0 && (
-              <TouchableOpacity onPress={() => router.push('/(tabs)/history')}>
-                <Text style={styles.sectionLink}>View all</Text>
+              <TouchableOpacity
+                style={styles.seeAllBtn}
+                onPress={() => router.push('/(tabs)/history')}
+              >
+                <Text style={styles.seeAllText}>See all</Text>
+                <ArrowRight size={14} color={Colors.primary} weight="bold" />
               </TouchableOpacity>
             )}
           </View>
@@ -211,56 +218,24 @@ export default function HomeScreen() {
           {scans.length === 0 ? (
             <EmptyState onScan={() => router.push('/(tabs)/scanner')} />
           ) : (
-            scans.map((scan) => (
-              <TouchableOpacity
+            scans.map(scan => (
+              <ScanCard
                 key={scan.id}
-                style={styles.scanCard}
+                scan={scan}
                 onPress={() => router.push(`/results/${scan.id}`)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.scanCardLeft}>
-                  <View style={[
-                    styles.scoreRing,
-                    { borderColor: getScoreColor(scan.safety_score) }
-                  ]}>
-                    <Text style={[
-                      styles.scoreText,
-                      { color: getScoreColor(scan.safety_score) }
-                    ]}>
-                      {scan.safety_score ?? '?'}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.scanCardMiddle}>
-                  <Text style={styles.scanLabel} numberOfLines={1}>
-                    {scan.label || 'Unnamed scan'}
-                  </Text>
-                  <Text style={styles.scanMeta}>
-                    {scan.ingredient_count} ingredients · {formatDate(scan.created_at)}
-                  </Text>
-                </View>
-                <View style={styles.scanCardRight}>
-                  <View style={[
-                    styles.scoreBadge,
-                    { backgroundColor: `${getScoreColor(scan.safety_score)}15` }
-                  ]}>
-                    <Text style={[
-                      styles.scoreBadgeText,
-                      { color: getScoreColor(scan.safety_score) }
-                    ]}>
-                      {getScoreLabel(scan.safety_score)}
-                    </Text>
-                  </View>
-                  <Text style={styles.chevron}>›</Text>
-                </View>
-              </TouchableOpacity>
+                getScoreColor={getScoreColor}
+                getScoreLabel={getScoreLabel}
+                formatDate={formatDate}
+              />
             ))
           )}
         </View>
 
-        {/* Tips section */}
+        {/* Tip card */}
         <View style={styles.tipCard}>
-          <Text style={styles.tipEmoji}>💡</Text>
+          <View style={styles.tipIconBox}>
+            <Sparkle size={18} color={Colors.primary} weight="fill" />
+          </View>
           <View style={styles.tipContent}>
             <Text style={styles.tipTitle}>Pro tip</Text>
             <Text style={styles.tipText}>
@@ -268,362 +243,134 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
-
       </ScrollView>
     </View>
+  )
+}
+
+function StatCard({ value, label, icon, color, bg }: {
+  value: number; label: string; icon: React.ReactNode; color: string; bg: string
+}) {
+  return (
+    <View style={[styles.statCard, Shadows.sm]}>
+      <View style={[styles.statIcon, { backgroundColor: bg }]}>{icon}</View>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  )
+}
+
+function ScanCard({ scan, onPress, getScoreColor, getScoreLabel, formatDate }: {
+  scan: ScanRecord; onPress: () => void
+  getScoreColor: (s: number | null) => string
+  getScoreLabel: (s: number | null) => string
+  formatDate: (d: string) => string
+}) {
+  const color = getScoreColor(scan.safety_score)
+  const label = getScoreLabel(scan.safety_score)
+  const isHarmful = label === 'Harmful'
+  const isCaution = label === 'Caution'
+  return (
+    <TouchableOpacity style={[styles.scanCard, Shadows.sm]} onPress={onPress} activeOpacity={0.8}>
+      <View style={[styles.scoreRingOuter, { borderColor: `${color}30` }]}>
+        <View style={[styles.scoreRingInner, { backgroundColor: `${color}15` }]}>
+          <Text style={[styles.scoreRingNum, { color }]}>{scan.safety_score ?? '?'}</Text>
+        </View>
+      </View>
+      <View style={styles.scanInfo}>
+        <Text style={styles.scanLabel} numberOfLines={1}>{scan.label || 'Unnamed scan'}</Text>
+        <Text style={styles.scanMeta}>{scan.ingredient_count} ingredients · {formatDate(scan.created_at)}</Text>
+      </View>
+      <View style={styles.scanRight}>
+        <View style={[styles.safetyBadge, { backgroundColor: `${color}15` }]}>
+          {isHarmful && <ShieldWarning size={11} color={color} weight="fill" />}
+          {isCaution && <Warning size={11} color={color} weight="fill" />}
+          {!isHarmful && !isCaution && <CheckCircle size={11} color={color} weight="fill" />}
+          <Text style={[styles.safetyBadgeText, { color }]}>{label}</Text>
+        </View>
+        <ArrowRight size={14} color={Colors.textTertiary} weight="bold" />
+      </View>
+    </TouchableOpacity>
   )
 }
 
 function EmptyState({ onScan }: { onScan: () => void }) {
   return (
     <View style={styles.emptyState}>
-      <View style={styles.emptyIcon}>
-        <Text style={styles.emptyIconText}>⬡</Text>
+      <View style={styles.emptyIconBox}>
+        <Leaf size={32} color={Colors.primary} weight="fill" />
       </View>
       <Text style={styles.emptyTitle}>No scans yet</Text>
-      <Text style={styles.emptySubtitle}>
-        Scan your first product to see{'\n'}what's really inside
-      </Text>
-      <TouchableOpacity style={styles.emptyButton} onPress={onScan}>
-        <Text style={styles.emptyButtonText}>Scan now</Text>
+      <Text style={styles.emptySubtitle}>Scan your first product to see{'\n'}what's really inside</Text>
+      <TouchableOpacity style={styles.emptyBtn} onPress={onScan}>
+        <LinearGradient
+          colors={[Colors.primary, Colors.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.emptyBtnGradient}
+        >
+          <ScanIcon size={16} color="#fff" weight="bold" />
+          <Text style={styles.emptyBtnText}>Scan now</Text>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#080808',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#080808',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bgCircle1: {
-    position: 'absolute',
-    width: 350,
-    height: 350,
-    borderRadius: 175,
-    backgroundColor: '#00E5A008',
-    top: -100,
-    right: -100,
-  },
-  bgCircle2: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#00E5A005',
-    bottom: 200,
-    left: -80,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  loadingContainer: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 100 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    marginBottom: 28,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing['2xl'],
   },
-  greeting: {
-    fontSize: 14,
-    color: '#555',
-    fontWeight: '400',
-  },
-  name: {
-    fontSize: 26,
-    color: '#fff',
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#00E5A015',
-    borderWidth: 1,
-    borderColor: '#00E5A030',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileInitial: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#00E5A0',
-  },
-  heroCard: {
-    marginHorizontal: 24,
-    borderRadius: 20,
-    backgroundColor: '#00E5A0',
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  heroCardInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 24,
-  },
-  heroLeft: {
-    flex: 1,
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#080808',
-    marginBottom: 6,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    color: '#08080880',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  heroCTA: {
-    backgroundColor: '#08080815',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  heroCTAText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#080808',
-  },
-  heroIcon: {
-    width: 80,
-    height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroHex: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#08080820',
-    borderWidth: 2,
-    borderColor: '#08080830',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#080808',
-  },
-  heroLine: {
-    position: 'absolute',
-    width: 60,
-    height: 1.5,
-    backgroundColor: '#08080820',
-    top: 28,
-  },
-  heroLine2: {
-    position: 'absolute',
-    width: 1.5,
-    height: 60,
-    backgroundColor: '#08080820',
-    left: 39,
-  },
-  heroLine3: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#08080815',
-    borderStyle: 'dashed',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    marginHorizontal: 24,
-    backgroundColor: '#111',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    marginBottom: 28,
-    paddingVertical: 20,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#444',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#1a1a1a',
-    marginVertical: 4,
-  },
-  section: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  sectionLink: {
-    fontSize: 13,
-    color: '#00E5A0',
-    fontWeight: '500',
-  },
-  scanCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    padding: 16,
-    marginBottom: 10,
-    gap: 12,
-  },
-  scanCardLeft: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreRing: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  scanCardMiddle: {
-    flex: 1,
-    gap: 4,
-  },
-  scanLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  scanMeta: {
-    fontSize: 12,
-    color: '#444',
-  },
-  scanCardRight: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  scoreBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  scoreBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  chevron: {
-    fontSize: 18,
-    color: '#333',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    gap: 12,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  emptyIconText: {
-    fontSize: 32,
-    color: '#00E5A0',
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#444',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  emptyButton: {
-    marginTop: 8,
-    backgroundColor: '#00E5A015',
-    borderWidth: 1,
-    borderColor: '#00E5A030',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  emptyButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#00E5A0',
-  },
-  tipCard: {
-    marginHorizontal: 24,
-    backgroundColor: '#111',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    padding: 16,
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'flex-start',
-  },
-  tipEmoji: {
-    fontSize: 20,
-  },
-  tipContent: {
-    flex: 1,
-    gap: 4,
-  },
-  tipTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  tipText: {
-    fontSize: 13,
-    color: '#444',
-    lineHeight: 20,
-  },
+  greeting: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary },
+  name: { fontFamily: Fonts.extrabold, fontSize: FontSizes['4xl'], color: Colors.textPrimary, marginTop: 2 },
+  avatarBtn: { borderRadius: Radius.full, overflow: 'hidden' },
+  avatarGradient: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: '#fff' },
+  heroWrapper: { marginHorizontal: Spacing['2xl'], marginBottom: Spacing.xl, borderRadius: Radius['2xl'], overflow: 'hidden', ...Shadows.primary },
+  heroCard: { borderRadius: Radius['2xl'], padding: Spacing['2xl'], flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
+  heroCircle1: { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.08)', top: -60, right: -40 },
+  heroCircle2: { position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.06)', bottom: -40, left: 40 },
+  heroContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.lg },
+  heroIconBox: { width: 56, height: 56, borderRadius: Radius.xl, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  heroText: { flex: 1 },
+  heroTitle: { fontFamily: Fonts.extrabold, fontSize: FontSizes['2xl'], color: '#fff', marginBottom: 4 },
+  heroSub: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: 'rgba(255,255,255,0.75)', lineHeight: 18 },
+  heroArrow: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+  statsRow: { flexDirection: 'row', marginHorizontal: Spacing['2xl'], gap: Spacing.md, marginBottom: Spacing['2xl'] },
+  statCard: { flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.lg, alignItems: 'center', gap: 6 },
+  statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  statValue: { fontFamily: Fonts.extrabold, fontSize: FontSizes['3xl'] },
+  statLabel: { fontFamily: Fonts.medium, fontSize: FontSizes.xs, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.4, textAlign: 'center' },
+  section: { paddingHorizontal: Spacing['2xl'], marginBottom: Spacing['2xl'] },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
+  sectionTitle: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: Colors.textPrimary },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  seeAllText: { fontFamily: Fonts.semibold, fontSize: FontSizes.sm, color: Colors.primary },
+  scanCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md, gap: Spacing.md },
+  scoreRingOuter: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  scoreRingInner: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  scoreRingNum: { fontFamily: Fonts.extrabold, fontSize: FontSizes.base },
+  scanInfo: { flex: 1, gap: 3 },
+  scanLabel: { fontFamily: Fonts.semibold, fontSize: FontSizes.md, color: Colors.textPrimary },
+  scanMeta: { fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.textTertiary },
+  scanRight: { alignItems: 'center', gap: 6 },
+  safetyBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full },
+  safetyBadgeText: { fontFamily: Fonts.bold, fontSize: FontSizes.xs },
+  emptyState: { alignItems: 'center', paddingVertical: Spacing['4xl'], gap: Spacing.md },
+  emptyIconBox: { width: 80, height: 80, borderRadius: Radius['2xl'], backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
+  emptyTitle: { fontFamily: Fonts.bold, fontSize: FontSizes['2xl'], color: Colors.textPrimary },
+  emptySubtitle: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  emptyBtn: { marginTop: Spacing.sm, borderRadius: Radius.xl, overflow: 'hidden', ...Shadows.primary },
+  emptyBtnGradient: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing['2xl'], paddingVertical: Spacing.lg },
+  emptyBtnText: { fontFamily: Fonts.bold, fontSize: FontSizes.md, color: '#fff' },
+  tipCard: { marginHorizontal: Spacing['2xl'], backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, ...Shadows.sm },
+  tipIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  tipContent: { flex: 1, gap: 4 },
+  tipTitle: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.textPrimary },
+  tipText: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: Colors.textSecondary, lineHeight: 20 },
 })
