@@ -2,8 +2,7 @@ import { Tabs } from 'expo-router'
 import { View, StyleSheet, Platform } from 'react-native'
 import { Colors, Fonts, FontSizes } from '@/constants/theme'
 import {
-  House, Scan, ClockCounterClockwise,
-  Gear, User
+  House, Scan, ClockCounterClockwise, User
 } from 'phosphor-react-native'
 
 type IconProps = {
