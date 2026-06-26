@@ -1,29 +1,64 @@
 import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView
+  StyleSheet, KeyboardAvoidingView, Platform,
+  ActivityIndicator, ScrollView
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '@/lib/supabase'
 import { validateEmail } from '@/lib/emailValidator'
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
+import {
+  ArrowLeft, EnvelopeSimple, Lock, Eye, EyeSlash,
+  Warning, ArrowRight, Leaf, UserCircle
+} from 'phosphor-react-native'
 
 function getSignUpErrorMessage(error: { message: string; status?: number }): string {
   const msg = error.message?.toLowerCase() ?? ''
-  if (msg.includes('user already registered') || msg.includes('already exists')) {
+  if (msg.includes('user already registered') || msg.includes('already exists'))
     return 'An account with this email already exists. Try signing in.'
-  }
-  if (msg.includes('password') && msg.includes('short')) {
+  if (msg.includes('password') && msg.includes('short'))
     return 'Password must be at least 6 characters.'
-  }
-  if (msg.includes('too many requests') || error.status === 429) {
+  if (msg.includes('too many requests') || error.status === 429)
     return 'Too many attempts. Please wait a moment and try again.'
-  }
-  if (msg.includes('network') || msg.includes('fetch')) {
+  if (msg.includes('network') || msg.includes('fetch'))
     return 'Network error. Please check your connection.'
-  }
   return `Sign up failed: ${error.message}`
 }
+
+function PasswordStrength({ password }: { password: string }) {
+  const strength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : 3
+  const config = [
+    { color: Colors.border, label: '' },
+    { color: Colors.danger, label: 'Weak' },
+    { color: Colors.caution, label: 'Fair' },
+    { color: Colors.safe, label: 'Strong' },
+  ]
+  if (!password) return null
+  const { color, label } = config[strength]
+  return (
+    <View style={pwStyles.container}>
+      <View style={pwStyles.bars}>
+        {[1, 2, 3].map(i => (
+          <View
+            key={i}
+            style={[pwStyles.bar, { backgroundColor: i <= strength ? color : Colors.border }]}
+          />
+        ))}
+      </View>
+      <Text style={[pwStyles.label, { color }]}>{label}</Text>
+    </View>
+  )
+}
+
+const pwStyles = StyleSheet.create({
+  container: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  bars: { flexDirection: 'row', gap: 4, flex: 1 },
+  bar: { flex: 1, height: 4, borderRadius: 2 },
+  label: { fontFamily: Fonts.semibold, fontSize: FontSizes.xs, width: 44 },
+})
 
 export default function SignUpScreen() {
   const router = useRouter()
@@ -36,26 +71,11 @@ export default function SignUpScreen() {
 
   async function handleSignUp() {
     setErrorMsg('')
-
-    if (!fullName.trim()) {
-      setErrorMsg('Please enter your full name.')
-      return
-    }
-    if (!email || !password) {
-      setErrorMsg('Please fill in all fields.')
-      return
-    }
-
+    if (!fullName.trim()) { setErrorMsg('Please enter your full name.'); return }
+    if (!email || !password) { setErrorMsg('Please fill in all fields.'); return }
     const emailCheck = validateEmail(email)
-    if (!emailCheck.valid) {
-      setErrorMsg(emailCheck.reason)
-      return
-    }
-
-    if (password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters.')
-      return
-    }
+    if (!emailCheck.valid) { setErrorMsg(emailCheck.reason); return }
+    if (password.length < 6) { setErrorMsg('Password must be at least 6 characters.'); return }
 
     setLoading(true)
     try {
@@ -81,16 +101,19 @@ export default function SignUpScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
+      <View style={styles.blob1} />
+      <View style={styles.blob2} />
 
-      <View style={styles.circle1} />
-      <View style={styles.circle2} />
-
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>←</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
         </TouchableOpacity>
-        <Text style={styles.brand}>INGRYN</Text>
+        <View style={styles.logoMini}>
+          <Leaf size={16} color={Colors.primary} weight="fill" />
+          <Text style={styles.logoMiniText}>INGRYN</Text>
+        </View>
         <View style={{ width: 40 }} />
       </View>
 
@@ -100,43 +123,54 @@ export default function SignUpScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Create account</Text>
-        <Text style={styles.subtitle}>Start scanning in seconds</Text>
+        <Text style={styles.pageTitle}>Create account</Text>
+        <Text style={styles.pageSubtitle}>Start scanning in seconds — it's free</Text>
 
         <View style={styles.form}>
+          {/* Full name */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={[styles.input, errorMsg && !fullName.trim() ? styles.inputError : null]}
-              placeholder="Your name"
-              placeholderTextColor="#333"
-              value={fullName}
-              onChangeText={t => { setFullName(t); setErrorMsg('') }}
-              autoCapitalize="words"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[styles.input, errorMsg ? styles.inputError : null]}
-              placeholder="you@example.com"
-              placeholderTextColor="#333"
-              value={email}
-              onChangeText={t => { setEmail(t); setErrorMsg('') }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={[styles.passwordContainer, errorMsg ? styles.inputError : null]}>
+            <Text style={styles.inputLabel}>Full name</Text>
+            <View style={[styles.inputWrapper, errorMsg && !fullName.trim() ? styles.inputError : null, Shadows.sm]}>
+              <UserCircle size={18} color={Colors.textTertiary} weight="regular" />
               <TextInput
-                style={[styles.input, { flex: 1, borderWidth: 0 }]}
+                style={styles.input}
+                placeholder="Your name"
+                placeholderTextColor={Colors.textTertiary}
+                value={fullName}
+                onChangeText={t => { setFullName(t); setErrorMsg('') }}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+
+          {/* Email */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Email</Text>
+            <View style={[styles.inputWrapper, errorMsg ? styles.inputError : null, Shadows.sm]}>
+              <EnvelopeSimple size={18} color={Colors.textTertiary} weight="regular" />
+              <TextInput
+                style={styles.input}
+                placeholder="you@example.com"
+                placeholderTextColor={Colors.textTertiary}
+                value={email}
+                onChangeText={t => { setEmail(t); setErrorMsg('') }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+
+          {/* Password */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Password</Text>
+            <View style={[styles.inputWrapper, errorMsg ? styles.inputError : null, Shadows.sm]}>
+              <Lock size={18} color={Colors.textTertiary} weight="regular" />
+              <TextInput
+                style={styles.input}
                 placeholder="Min. 6 characters"
-                placeholderTextColor="#333"
+                placeholderTextColor={Colors.textTertiary}
                 value={password}
                 onChangeText={t => { setPassword(t); setErrorMsg('') }}
                 secureTextEntry={!showPassword}
@@ -144,32 +178,47 @@ export default function SignUpScreen() {
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeButton}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁'}</Text>
+                {showPassword
+                  ? <EyeSlash size={18} color={Colors.textTertiary} weight="regular" />
+                  : <Eye size={18} color={Colors.textTertiary} weight="regular" />
+                }
               </TouchableOpacity>
             </View>
             <PasswordStrength password={password} />
           </View>
         </View>
 
+        {/* Error banner */}
         {errorMsg ? (
           <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{errorMsg}</Text>
+            <Warning size={14} color={Colors.danger} weight="fill" />
+            <Text style={styles.errorBannerText}>{errorMsg}</Text>
           </View>
         ) : null}
 
+        {/* CTA */}
         <TouchableOpacity
-          style={[styles.primaryButton, loading && styles.buttonDisabled]}
+          style={[styles.primaryBtnWrapper, loading && styles.btnDisabled, Shadows.primary]}
           onPress={handleSignUp}
           disabled={loading}
-          activeOpacity={0.85}
+          activeOpacity={0.9}
         >
-          {loading ? (
-            <ActivityIndicator color="#080808" />
-          ) : (
-            <Text style={styles.primaryButtonText}>Create Account</Text>
-          )}
+          <LinearGradient
+            colors={[Colors.primary, Colors.primaryDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.primaryBtn}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <>
+                  <Text style={styles.primaryBtnText}>Create Account</Text>
+                  <ArrowRight size={18} color="#fff" weight="bold" />
+                </>
+            }
+          </LinearGradient>
         </TouchableOpacity>
 
         <View style={styles.divider}>
@@ -178,113 +227,81 @@ export default function SignUpScreen() {
           <View style={styles.dividerLine} />
         </View>
 
-        <TouchableOpacity style={styles.googleButton} activeOpacity={0.8}>
+        {/* Google */}
+        <TouchableOpacity style={[styles.googleBtn, Shadows.sm]} activeOpacity={0.8}>
           <Text style={styles.googleIcon}>G</Text>
           <Text style={styles.googleText}>Continue with Google</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => router.push('/(auth)/signin')}
-          style={styles.switchButton}
+          style={styles.linkBtn}
         >
-          <Text style={styles.switchText}>
+          <Text style={styles.linkBtnText}>
             Already have an account?{' '}
-            <Text style={styles.switchHighlight}>Sign in</Text>
+            <Text style={styles.linkBtnHighlight}>Sign in</Text>
           </Text>
         </TouchableOpacity>
+
+        <Text style={styles.legal}>
+          By creating an account you agree to our Terms of Service and Privacy Policy
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   )
 }
 
-function PasswordStrength({ password }: { password: string }) {
-  const strength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : 3
-  const colors = ['#222', '#E24B4A', '#EF9F27', '#00E5A0']
-  const labels = ['', 'Weak', 'Fair', 'Strong']
-
-  if (!password) return null
-
-  return (
-    <View style={{ marginTop: 8, gap: 6 }}>
-      <View style={{ flexDirection: 'row', gap: 4 }}>
-        {[1, 2, 3].map((i) => (
-          <View
-            key={i}
-            style={{
-              flex: 1,
-              height: 3,
-              borderRadius: 2,
-              backgroundColor: i <= strength ? colors[strength] : '#222',
-            }}
-          />
-        ))}
-      </View>
-      <Text style={{ fontSize: 11, color: colors[strength] }}>{labels[strength]}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#080808' },
-  circle1: {
-    position: 'absolute', width: 300, height: 300, borderRadius: 150,
-    backgroundColor: '#00E5A010', top: -100, right: -100,
-  },
-  circle2: {
-    position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    backgroundColor: '#00E5A008', bottom: 50, left: -80,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  blob1: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: `${Colors.primary}10`, top: -100, right: -80 },
+  blob2: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: `${Colors.primary}08`, bottom: 60, left: -60 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: 24, marginBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 48,
+    paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl,
   },
-  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  backText: { color: '#fff', fontSize: 24 },
-  brand: { fontSize: 16, fontWeight: '800', color: '#00E5A0', letterSpacing: 4 },
+  backBtn: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },
+  logoMini: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  logoMiniText: { fontFamily: Fonts.extrabold, fontSize: FontSizes.sm, color: Colors.textPrimary, letterSpacing: 3 },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 24, paddingBottom: 48 },
-  title: { fontSize: 32, fontWeight: '700', color: '#fff', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#555', marginBottom: 40 },
-  form: { gap: 20, marginBottom: 24 },
-  inputGroup: { gap: 8 },
-  label: {
-    fontSize: 13, color: '#888', fontWeight: '500',
-    letterSpacing: 0.5, textTransform: 'uppercase',
+  scrollContent: { paddingHorizontal: Spacing['2xl'], paddingBottom: 48 },
+  pageTitle: { fontFamily: Fonts.extrabold, fontSize: FontSizes['5xl'], color: Colors.textPrimary, marginBottom: 8 },
+  pageSubtitle: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary, marginBottom: Spacing['3xl'] },
+  form: { gap: Spacing.xl, marginBottom: Spacing.xl },
+  inputGroup: { gap: Spacing.sm },
+  inputLabel: { fontFamily: Fonts.semibold, fontSize: FontSizes.sm, color: Colors.textSecondary },
+  inputWrapper: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
+    borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.xl,
+    paddingHorizontal: Spacing.lg, gap: Spacing.md,
   },
-  input: {
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#222',
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 16,
-    fontSize: 16, color: '#fff',
-  },
-  inputError: { borderColor: '#ff4444' },
-  passwordContainer: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#111',
-    borderWidth: 1, borderColor: '#222', borderRadius: 12, paddingHorizontal: 16,
-  },
-  eyeButton: { padding: 8 },
-  eyeText: { fontSize: 16 },
+  inputError: { borderColor: Colors.danger },
+  input: { flex: 1, fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textPrimary, paddingVertical: Spacing.lg, padding: 0 },
   errorBanner: {
-    backgroundColor: '#1a0505', borderWidth: 1, borderColor: '#3a1010',
-    borderRadius: 10, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: Colors.dangerLight, borderRadius: Radius.xl,
+    padding: Spacing.lg, marginBottom: Spacing.lg,
   },
-  errorText: { color: '#ff6b6b', fontSize: 13, fontWeight: '500', lineHeight: 18 },
-  primaryButton: {
-    backgroundColor: '#00E5A0', borderRadius: 14, paddingVertical: 18,
-    alignItems: 'center', marginBottom: 24,
-  },
-  buttonDisabled: { opacity: 0.5 },
-  primaryButtonText: { fontSize: 16, fontWeight: '700', color: '#080808', letterSpacing: 0.5 },
-  divider: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#1a1a1a' },
-  dividerText: { fontSize: 13, color: '#444' },
-  googleButton: {
+  errorBannerText: { flex: 1, fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger, lineHeight: 18 },
+  primaryBtnWrapper: { borderRadius: Radius.xl, overflow: 'hidden', marginBottom: Spacing.xl },
+  btnDisabled: { opacity: 0.5 },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: Spacing.xl },
+  primaryBtnText: { fontFamily: Fonts.bold, fontSize: FontSizes.lg, color: '#fff' },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: Spacing.xl },
+  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
+  dividerText: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: Colors.textTertiary },
+  googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#222',
-    borderRadius: 14, paddingVertical: 16, gap: 12, marginBottom: 24,
+    backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: Radius.xl, paddingVertical: Spacing.lg, gap: 12, marginBottom: Spacing.xl,
   },
-  googleIcon: { fontSize: 18, fontWeight: '700', color: '#fff' },
-  googleText: { fontSize: 15, color: '#ccc', fontWeight: '500' },
-  switchButton: { alignItems: 'center' },
-  switchText: { fontSize: 14, color: '#555' },
-  switchHighlight: { color: '#00E5A0', fontWeight: '600' },
+  googleIcon: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: Colors.textPrimary },
+  googleText: { fontFamily: Fonts.medium, fontSize: FontSizes.base, color: Colors.textSecondary },
+  linkBtn: { alignItems: 'center', paddingVertical: Spacing.sm },
+  linkBtnText: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary },
+  linkBtnHighlight: { fontFamily: Fonts.bold, color: Colors.primary },
+  legal: {
+    fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.textTertiary,
+    textAlign: 'center', lineHeight: 18, marginTop: Spacing.md, paddingHorizontal: Spacing.lg,
+  },
 })
