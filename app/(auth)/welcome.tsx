@@ -1,14 +1,12 @@
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Platform
+  View, Text, StyleSheet, TouchableOpacity, Platform
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
-import {
-  Scan, ShieldCheck, Globe, ArrowRight, Leaf
-} from 'phosphor-react-native'
+import { Scan, ShieldCheck, Globe, ArrowRight, Leaf } from 'phosphor-react-native'
 
 const FEATURES = [
   {
@@ -16,21 +14,21 @@ const FEATURES = [
     color: Colors.primary,
     bg: Colors.primaryLight,
     title: 'Scan any label',
-    desc: 'Point your camera at any ingredient list for instant AI analysis.',
+    desc: 'Instant AI analysis of every ingredient.',
   },
   {
     icon: ShieldCheck,
     color: Colors.info,
     bg: Colors.infoLight,
     title: 'Safety ratings',
-    desc: 'Every ingredient rated Safe, Caution, or Harmful with full explanation.',
+    desc: 'Safe, Caution, or Harmful — clearly explained.',
   },
   {
     icon: Globe,
     color: Colors.warning,
     bg: Colors.warningLight,
     title: 'Global ban checks',
-    desc: 'See which ingredients are banned in the US, EU, India, Japan and more.',
+    desc: 'Banned in the US, EU, India, Japan and more.',
   },
 ]
 
@@ -45,35 +43,28 @@ export default function WelcomeScreen() {
       <View style={styles.blob1} />
       <View style={styles.blob2} />
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
-        {/* ─── Hero section ─── */}
+      <SafeAreaView style={styles.safe}>
+        {/* ─── Hero ─── */}
         <View style={styles.hero}>
-          {/* Logo */}
           <LinearGradient
             colors={[Colors.primary, Colors.primaryDark]}
             style={styles.logoGradient}
           >
-            <Leaf size={36} color="#fff" weight="fill" />
+            <Leaf size={28} color="#fff" weight="fill" />
           </LinearGradient>
-
-          {/* Brand */}
           <Text style={styles.brand}>INGRYN</Text>
           <Text style={styles.tagline}>Know what's inside.</Text>
           <Text style={styles.subtagline}>
-            AI-powered ingredient analysis for{'\n'}the products you use every day.
+            AI-powered ingredient analysis for the products you use every day.
           </Text>
         </View>
 
-        {/* ─── Feature cards ─── */}
+        {/* ─── Features ─── */}
         <View style={styles.features}>
           {FEATURES.map((f, i) => (
-            <View key={i} style={[styles.featureCard, Shadows.sm]}>
-              <View style={[styles.featureIconBox, { backgroundColor: f.bg }]}>
-                <f.icon size={22} color={f.color} weight="fill" />
+            <View key={i} style={[styles.featureRow, Shadows.sm]}>
+              <View style={[styles.featureIcon, { backgroundColor: f.bg }]}>
+                <f.icon size={18} color={f.color} weight="fill" />
               </View>
               <View style={styles.featureText}>
                 <Text style={styles.featureTitle}>{f.title}</Text>
@@ -85,11 +76,19 @@ export default function WelcomeScreen() {
 
         {/* ─── Stats strip ─── */}
         <View style={[styles.statsStrip, Shadows.sm]}>
-          <StatItem value="10s" label="Scan time" />
-          <View style={styles.statDivider} />
-          <StatItem value="117+" label="Ingredients" />
-          <View style={styles.statDivider} />
-          <StatItem value="8" label="Countries" />
+          {[
+            { value: '10s', label: 'Scan time' },
+            { value: '117+', label: 'Ingredients' },
+            { value: '8', label: 'Countries' },
+          ].map((s, i, arr) => (
+            <View key={s.label} style={styles.statGroup}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{s.value}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
+              </View>
+              {i < arr.length - 1 && <View style={styles.statDivider} />}
+            </View>
+          ))}
         </View>
 
         {/* ─── CTAs ─── */}
@@ -106,16 +105,16 @@ export default function WelcomeScreen() {
               style={styles.primaryBtn}
             >
               <Text style={styles.primaryBtnText}>Get started — it's free</Text>
-              <View style={styles.primaryBtnArrow}>
-                <ArrowRight size={18} color={Colors.primary} weight="bold" />
+              <View style={styles.arrowCircle}>
+                <ArrowRight size={16} color={Colors.primary} weight="bold" />
               </View>
             </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.secondaryBtn}
             onPress={() => router.push('/(auth)/signin')}
             activeOpacity={0.7}
+            style={styles.secondaryBtn}
           >
             <Text style={styles.secondaryBtnText}>
               Already have an account?{' '}
@@ -124,19 +123,10 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
 
           <Text style={styles.legal}>
-            By continuing, you agree to our Terms of Service and Privacy Policy
+            By continuing you agree to our Terms of Service and Privacy Policy
           </Text>
         </View>
-      </ScrollView>
-    </View>
-  )
-}
-
-function StatItem({ value, label }: { value: string; label: string }) {
-  return (
-    <View style={styles.statItem}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      </SafeAreaView>
     </View>
   )
 }
@@ -148,70 +138,71 @@ const styles = StyleSheet.create({
   },
   blob1: {
     position: 'absolute',
-    width: 340,
-    height: 340,
-    borderRadius: 170,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
     backgroundColor: `${Colors.primary}12`,
-    top: -120,
-    right: -100,
+    top: -80,
+    right: -60,
   },
   blob2: {
     position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
     backgroundColor: `${Colors.primary}08`,
-    bottom: 80,
-    left: -80,
+    bottom: 60,
+    left: -50,
   },
-  scroll: {
-    paddingTop: Platform.OS === 'ios' ? 80 : 60,
+  safe: {
+    flex: 1,
     paddingHorizontal: Spacing['2xl'],
-    paddingBottom: 48,
-    gap: Spacing['2xl'],
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'android' ? Spacing.xl : 0,
+    paddingBottom: Spacing.lg,
   },
 
   // Hero
   hero: {
     alignItems: 'center',
-    gap: Spacing.md,
-    paddingBottom: Spacing.lg,
+    paddingTop: Spacing.lg,
+    gap: Spacing.sm,
   },
   logoGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
     ...Shadows.primary,
   },
   brand: {
     fontFamily: Fonts.extrabold,
-    fontSize: FontSizes['6xl'],
+    fontSize: FontSizes['4xl'],
     color: Colors.textPrimary,
     letterSpacing: 6,
   },
   tagline: {
     fontFamily: Fonts.bold,
-    fontSize: FontSizes['3xl'],
+    fontSize: FontSizes['2xl'],
     color: Colors.textPrimary,
     textAlign: 'center',
   },
   subtagline: {
     fontFamily: Fonts.regular,
-    fontSize: FontSizes.base,
+    fontSize: FontSizes.sm,
     color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
-    marginTop: 4,
+    lineHeight: 20,
+    paddingHorizontal: Spacing.md,
   },
 
   // Features
   features: {
     gap: Spacing.md,
   },
-  featureCard: {
+  featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
@@ -219,45 +210,48 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.lg,
   },
-  featureIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.lg,
+  featureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  featureText: {
-    flex: 1,
-    gap: 4,
-  },
+  featureText: { flex: 1 },
   featureTitle: {
     fontFamily: Fonts.semibold,
     fontSize: FontSizes.base,
     color: Colors.textPrimary,
+    marginBottom: 2,
   },
   featureDesc: {
     fontFamily: Fonts.regular,
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: Colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 16,
   },
 
-  // Stats strip
+  // Stats
   statsStrip: {
     flexDirection: 'row',
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
-    paddingVertical: Spacing.xl,
+    paddingVertical: Spacing.lg,
+  },
+  statGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   statValue: {
     fontFamily: Fonts.extrabold,
-    fontSize: FontSizes['3xl'],
+    fontSize: FontSizes['2xl'],
     color: Colors.primary,
   },
   statLabel: {
@@ -265,17 +259,17 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xs,
     color: Colors.textTertiary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   statDivider: {
     width: 1,
+    height: 28,
     backgroundColor: Colors.border,
-    marginVertical: 4,
   },
 
   // CTAs
   ctas: {
-    gap: Spacing.lg,
+    gap: Spacing.md,
     alignItems: 'center',
   },
   primaryBtnWrapper: {
@@ -296,18 +290,18 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bold,
     fontSize: FontSizes.lg,
     color: '#fff',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
-  primaryBtnArrow: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+  arrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryBtn: {
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
   secondaryBtnText: {
     fontFamily: Fonts.regular,
@@ -323,7 +317,7 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xs,
     color: Colors.textTertiary,
     textAlign: 'center',
-    lineHeight: 18,
-    paddingHorizontal: Spacing.lg,
+    lineHeight: 17,
+    paddingHorizontal: Spacing.xl,
   },
 })

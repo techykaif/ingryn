@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { Platform, Alert } from 'react-native'
+import { Platform } from 'react-native'
 import { CameraView } from 'expo-camera'
 import * as ImagePicker from 'expo-image-picker'
 import { saveAnalysis } from './useIngredientAnalysis'
@@ -8,6 +8,7 @@ import { useDietaryPreferences } from './useDietaryPreferences'
 export const IS_WEB = Platform.OS === 'web'
 
 export type ScanStep = 'camera' | 'processing' | 'manual'
+export type ScanError = { message: string; allowManual?: boolean } | null
 
 const PROCESSING_TIPS = [
   'Identifying ingredients...',
@@ -25,6 +26,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
   const [cameraReady, setCameraReady] = useState(false)
   const [processingTip, setProcessingTip] = useState(0)
   const [manualText, setManualText] = useState('')
+  const [scanError, setScanError] = useState<ScanError>(null)
   const cameraRef = useRef<CameraView>(null)
   const tipInterval = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -45,6 +47,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
 
   const activateCamera = useCallback(() => {
     setCameraActive(true)
+    setScanError(null)
   }, [])
 
   const deactivateCamera = useCallback(() => {
@@ -54,19 +57,20 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
   }, [stopTipCycle])
 
   const processText = useCallback(async (text: string) => {
+    setScanError(null)
     setStep('processing')
     startTipCycle()
     const { scanId, error } = await saveAnalysis(text, userId, preferences)
-
     stopTipCycle()
 
     if (error || !scanId) {
       setStep(IS_WEB ? 'manual' : 'camera')
-      Alert.alert('Analysis failed', error || 'Could not analyze ingredients. Please try again.')
+      setScanError({ message: error || 'Could not analyse ingredients. Please try again.', allowManual: true })
       return
     }
 
     setManualText('')
+    setScanError(null)
     setStep(IS_WEB ? 'manual' : 'camera')
     onSuccess(scanId)
   }, [userId, preferences, startTipCycle, stopTipCycle, onSuccess])
@@ -75,10 +79,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     if (IS_WEB) {
       stopTipCycle()
       setStep('manual')
-      Alert.alert(
-        'Web limitation',
-        'Camera OCR is not available on web. Please type the ingredients manually.'
-      )
+      setScanError({ message: 'Camera OCR is not available on web. Please type the ingredients manually.' })
       return
     }
 
@@ -90,14 +91,10 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
       if (!text || text.length < 10) {
         stopTipCycle()
         setStep('camera')
-        Alert.alert(
-          'Could not read label',
-          'Try better lighting or a flatter surface.',
-          [
-            { text: 'Try again', style: 'cancel' },
-            { text: 'Type manually', onPress: () => setStep('manual') },
-          ]
-        )
+        setScanError({
+          message: 'Could not read the label. Try better lighting or a flatter surface.',
+          allowManual: true,
+        })
         return
       }
 
@@ -105,73 +102,71 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     } catch (e: any) {
       stopTipCycle()
       setStep('camera')
-      Alert.alert('OCR failed', e.message || 'Could not read the image.')
+      setScanError({ message: e.message || 'Could not read the image.', allowManual: true })
     }
   }, [stopTipCycle, processText])
 
-  // Uses native camera app via ImagePicker — avoids ERR_IMAGE_CAPTURE_FAILED
+  // ─── KEY FIX: use takePictureAsync (in-app) instead of launchCameraAsync
+  // launchCameraAsync launches the native camera app externally — on Android
+  // when returning from an external app, the React Native Activity gets
+  // destroyed and the app appears to "restart". takePictureAsync keeps
+  // everything inside the app and avoids this entirely.
   const handleCapture = useCallback(async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync()
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Camera permission is required to scan ingredients.')
-        return
-      }
+    if (!cameraRef.current || !cameraReady) return
+    setScanError(null)
 
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.8,
-        allowsEditing: false,
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.75,        // reduce size to avoid OOM on low-end devices
+        base64: false,
+        skipProcessing: true, // faster capture, no post-processing
       })
 
-      if (result.canceled || !result.assets?.[0]) return
+      if (!photo?.uri) return
 
-      const uri = result.assets[0].uri
       setStep('processing')
       startTipCycle()
-      await recognizeFromUri(uri)
+      await recognizeFromUri(photo.uri)
     } catch (e: any) {
       stopTipCycle()
       setStep('camera')
-      Alert.alert(
-        'Capture failed',
-        e.message || 'Could not take photo.',
-        [
-          { text: 'Try again', style: 'cancel' },
-          { text: 'Type manually', onPress: () => setStep('manual') },
-        ]
-      )
+      setScanError({
+        message: e.message || 'Could not take photo. Try again.',
+        allowManual: true,
+      })
     }
-  }, [startTipCycle, stopTipCycle, recognizeFromUri])
+  }, [cameraReady, startTipCycle, stopTipCycle, recognizeFromUri])
 
   const handleGalleryPick = useCallback(async () => {
+    setScanError(null)
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.9,
+        mediaTypes: ['images'],
+        quality: 0.85,
         allowsEditing: false,
       })
 
       if (result.canceled || !result.assets?.[0]) return
 
-      const uri = result.assets[0].uri
       setStep('processing')
       startTipCycle()
-      await recognizeFromUri(uri)
+      await recognizeFromUri(result.assets[0].uri)
     } catch (e: any) {
       stopTipCycle()
       setStep('camera')
-      Alert.alert('Gallery error', e.message || 'Could not open gallery.')
+      setScanError({ message: e.message || 'Could not open gallery.', allowManual: true })
     }
   }, [startTipCycle, stopTipCycle, recognizeFromUri])
 
   const handleManualSubmit = useCallback(async () => {
     if (!manualText.trim() || manualText.trim().length < 3) {
-      Alert.alert('Error', 'Please enter at least one ingredient')
+      setScanError({ message: 'Please enter at least one ingredient.' })
       return
     }
     await processText(manualText.trim())
   }, [manualText, processText])
+
+  const clearError = useCallback(() => setScanError(null), [])
 
   return {
     step, setStep,
@@ -180,6 +175,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     cameraReady, setCameraReady,
     processingTip,
     manualText, setManualText,
+    scanError, clearError,
     cameraRef,
     processingTips: PROCESSING_TIPS,
     activateCamera,
