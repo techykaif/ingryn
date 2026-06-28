@@ -1,13 +1,16 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "expo/tsconfig.base",   // ✅ Correct
+
   "compilerOptions": {
-    "strict": true,
+    "strict": true,                  // ✅ Recommended
+
     "paths": {
       "@/*": [
         "./*"
       ]
     }
   },
+
   "include": [
     "**/*.ts",
     "**/*.tsx",
