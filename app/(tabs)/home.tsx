@@ -34,15 +34,22 @@ export default function HomeScreen() {
 
   const fetchData = useCallback(async () => {
     try {
+      if (!user?.id) return
       const fullName = user?.user_metadata?.full_name || user?.email || ''
       setFirstName(fullName.split(' ')[0] || 'there')
 
-      const { data, error } = await supabase
-        .from('scans')
-        .select('id, label, safety_score, created_at, ingredient_ids')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(5)
+      const [{ data, error }, { count }] = await Promise.all([
+        supabase
+          .from('scans')
+          .select('id, label, safety_score, created_at, ingredient_ids')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('scans')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+      ])
 
       if (error) throw error
 
@@ -55,7 +62,7 @@ export default function HomeScreen() {
       }))
 
       setScans(mapped)
-      setTotalScans(data?.length || 0)
+      setTotalScans(count || 0)
     } catch (e) {
       console.error('Home fetch error:', e)
     } finally {

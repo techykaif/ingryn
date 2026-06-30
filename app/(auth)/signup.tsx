@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, ScrollView
+  ActivityIndicator, ScrollView, Alert
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -86,9 +86,14 @@ export default function SignUpScreen() {
       })
       if (error) {
         setErrorMsg(getSignUpErrorMessage(error))
-      } else if (data?.user) {
-        router.replace('/(tabs)/home')
+      } else if (!data?.session) {
+        // Email verification required — session is null until confirmed
+        Alert.alert(
+          'Check your email',
+          'We sent a verification link to your email address. Please verify to continue.',
+        )
       }
+      // If session exists, AuthGate in _layout.tsx handles the redirect
     } catch (e: any) {
       setErrorMsg(e.message ?? 'Something went wrong. Please try again.')
     } finally {

@@ -35,6 +35,7 @@ export default function HistoryScreen() {
   const fetchScans = useCallback(async () => {
     setLoading(true)
     try {
+      if (!user?.id) return
       const { data, error } = await supabase
         .from('scans')
         .select('*')
@@ -79,6 +80,7 @@ export default function HistoryScreen() {
   async function deleteScan(scanId: string) {
     setDeleting(scanId)
     try {
+      if (!user?.id) return
       const { error } = await supabase
         .from('scans')
         .delete()

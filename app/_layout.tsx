@@ -66,8 +66,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // Never interrupt the onboarding screen itself
     if (currentSegment === 'onboarding') return
 
+    const inTabsGroup = segments[0] === '(tabs)'
+    // Root index has no segments — the user just opened the app
+    const onRootIndex = !inAuthGroup && !inTabsGroup
+      && segments[0] !== 'results' && segments[0] !== 'ingredient'
+
     if (user) {
-      if (inAuthGroup) {
+      // Redirect logged-in users to home if they're on the auth screens
+      // or on the root index (which just shows a loader)
+      if (inAuthGroup || onRootIndex) {
         router.replace('/(tabs)/home')
       }
     } else {

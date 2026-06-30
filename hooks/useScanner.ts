@@ -31,6 +31,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
   const tipInterval = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const startTipCycle = useCallback(() => {
+    if (tipInterval.current) clearInterval(tipInterval.current)
     let i = 0
     tipInterval.current = setInterval(() => {
       i = (i + 1) % PROCESSING_TIPS.length

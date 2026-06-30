@@ -53,13 +53,14 @@ export default function SettingsScreen() {
       return
     }
     setNameSaving(true)
-    const { error } = await supabase.auth.updateUser({
+    const { data, error } = await supabase.auth.updateUser({
       data: { full_name: nameValue.trim() },
     })
     setNameSaving(false)
     if (error) {
       setNameError(error.message)
     } else {
+      if (data?.user) setUser(data.user)
       setNameSuccess(true)
       setEditingName(false)
       setTimeout(() => setNameSuccess(false), 3000)

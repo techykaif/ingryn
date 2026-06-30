@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
@@ -73,6 +73,16 @@ export default function SignInScreen() {
     return false
   }
 
+  // Clean up lockout timer on unmount
+  useEffect(() => {
+    return () => {
+      if (lockoutTimer.current) {
+        clearInterval(lockoutTimer.current)
+        lockoutTimer.current = null
+      }
+    }
+  }, [])
+
   async function handleSignIn() {
     setErrorMsg('')
     if (!email || !password) { setErrorMsg('Please enter your email and password.'); return }
@@ -100,7 +110,7 @@ export default function SignInScreen() {
       setErrorMsg(remaining <= 2 ? `${base} ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.` : base)
     } else {
       attempts.current = 0; lockoutCount.current = 0; lockoutUntil.current = null
-      router.replace('/(tabs)/home')
+      // AuthGate in _layout.tsx handles the redirect via onAuthStateChange
     }
   }
 
