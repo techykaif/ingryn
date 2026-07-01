@@ -249,7 +249,14 @@ export default function SignUpScreen() {
         </TouchableOpacity>
 
         <Text style={styles.legal}>
-          By creating an account you agree to our Terms of Service and Privacy Policy
+          By creating an account you agree to our{' '}
+          <Text style={styles.legalLink} onPress={() => router.push({ pathname: '/legal/[type]', params: { type: 'terms' } })}>
+            Terms of Service
+          </Text>
+          {' '}and{' '}
+          <Text style={styles.legalLink} onPress={() => router.push({ pathname: '/legal/[type]', params: { type: 'privacy' } })}>
+            Privacy Policy
+          </Text>
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -309,4 +316,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.textTertiary,
     textAlign: 'center', lineHeight: 18, marginTop: Spacing.md, paddingHorizontal: Spacing.lg,
   },
+  legalLink: { fontFamily: Fonts.semibold, color: Colors.primary, textDecorationLine: 'underline' },
 })

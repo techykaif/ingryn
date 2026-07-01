@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  Modal, ScrollView, ActivityIndicator
+   View, Text, StyleSheet, TouchableOpacity,
+  Modal, ScrollView, ActivityIndicator, useWindowDimensions
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useDietaryPreferences, DietaryPreferences } from '@/hooks/useDietaryPreferences'
@@ -49,6 +49,7 @@ type Props = {
 
 export function DietaryPreferencesModal({ visible, onClose }: Props) {
   const { preferences, loading, saving, savePreferences } = useDietaryPreferences()
+  const { height: windowHeight } = useWindowDimensions()
   const [local, setLocal] = useState<DietaryPreferences>({
     conditions: [],
     allergies: [],
@@ -98,7 +99,7 @@ export function DietaryPreferencesModal({ visible, onClose }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { maxHeight: windowHeight * 0.92 }]}>
           <View style={styles.handle} />
 
           <View style={styles.header}>
@@ -218,7 +219,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius['2xl'],
     borderTopRightRadius: Radius['2xl'],
-    maxHeight: '92%',
     paddingHorizontal: Spacing['2xl'],
     paddingBottom: 40,
     ...Shadows.lg,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   successText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.success },
   errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.dangerLight, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: 12 },
   errorText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger },
-  scroll: { flex: 1 },
+  scroll: { flex: 1, minHeight: 0 },
   scrollContent: { paddingBottom: 8 },
   sectionTitle: { fontFamily: Fonts.bold, fontSize: FontSizes.xs, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, marginTop: 6 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },

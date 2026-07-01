@@ -66,11 +66,18 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // Never interrupt the onboarding screen itself
     if (currentSegment === 'onboarding') return
 
+    // Public pages that must render regardless of auth state — legal pages
+    // need to be viewable before signup, reset-password needs to work
+    // whether or not a session exists yet. Never gate these.
+    const publicStandaloneRoutes = new Set(['legal', 'reset-password'])
+    if (publicStandaloneRoutes.has(segments[0] ?? '')) return
+
     const inTabsGroup = segments[0] === '(tabs)'
-    const allowedTopLevelRoutes = new Set(['results', 'ingredient', 'legal'])
-    // Root index has no segments — the user just opened the app
+    // Detail routes that only make sense when signed in — excluded from the
+    // logged-in "bounce to home" check, but still gated for logged-out users
+    const authOnlyDetailRoutes = new Set(['results', 'ingredient'])
     const onRootIndex = !inAuthGroup && !inTabsGroup
-      && !allowedTopLevelRoutes.has(segments[0] ?? '')
+      && !authOnlyDetailRoutes.has(segments[0] ?? '')
 
     if (user) {
       // Redirect logged-in users to home if they're on the auth screens
@@ -149,6 +156,8 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
             <Stack.Screen name="results/[scanId]" options={{ presentation: 'card', gestureEnabled: true }} />
             <Stack.Screen name="ingredient/[ingredientId]" options={{ presentation: 'card', gestureEnabled: true }} />
+            <Stack.Screen name="legal/[type]" options={{ presentation: 'card', gestureEnabled: true }} />
+            <Stack.Screen name="reset-password" options={{ presentation: 'card', gestureEnabled: false }} />
           </Stack>
         </AuthGate>
       </ErrorBoundary>
