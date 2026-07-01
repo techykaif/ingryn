@@ -121,11 +121,12 @@ export default function ResultsScreen() {
       pregnancy: ['caffeine', 'retinol', 'aspartame', 'saccharin', 'nitrate', 'nitrite'],
     }
     const dietKeywords: Record<string, string[]> = {
-      vegan: ['gelatin', 'carmine', 'e120', 'lard', 'rennet', 'casein', 'whey', 'albumin', 'lactose'],
-      vegetarian: ['gelatin', 'lard', 'rennet', 'carmine', 'e120'],
-      halal: ['alcohol', 'ethanol', 'gelatin', 'lard', 'pork'],
-      kosher: ['lard', 'pork', 'shellfish', 'gelatin'],
+      vegan: ['gelatin', 'carmine', 'e120', 'lard', 'rennet', 'casein', 'whey', 'albumin', 'lactose', 'honey', 'bone broth', 'animal fat'],
+      vegetarian: ['gelatin', 'lard', 'rennet', 'carmine', 'e120', 'bone broth', 'animal fat'],
+      halal: ['alcohol', 'ethanol', 'gelatin', 'lard', 'pork', 'animal fat'],
+      kosher: ['lard', 'pork', 'shellfish', 'gelatin', 'animal fat'],
       keto: ['sugar', 'glucose', 'fructose', 'maltodextrin', 'starch', 'dextrose'],
+      paleo: ['grain', 'wheat', 'soy', 'legume', 'lentil', 'bean', 'corn', 'oat', 'barley', 'rye', 'dextrose', 'maltodextrin', 'sugar'],
     }
 
     for (const allergy of preferences.allergies) {

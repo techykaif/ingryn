@@ -31,9 +31,13 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [page, setPage] = useState(1)
+  const pageSize = 10
 
   const fetchScans = useCallback(async () => {
     setLoading(true)
+    setErrorMessage('')
     try {
       if (!user?.id) return
       const { data, error } = await supabase
@@ -41,16 +45,17 @@ export default function HistoryScreen() {
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
+        .range(0, pageSize - 1)
 
       if (error) throw error
       setScans(data || [])
       setFiltered(data || [])
-    } catch (e) {
-      console.error('History fetch error:', e)
+    } catch (e: any) {
+      setErrorMessage(e.message || 'Unable to load history right now.')
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, pageSize])
 
   useFocusEffect(useCallback(() => { fetchScans() }, [fetchScans]))
 
@@ -92,8 +97,9 @@ export default function HistoryScreen() {
       setFiltered(updated.filter(s =>
         !searchQuery || (s.label || '').toLowerCase().includes(searchQuery.toLowerCase())
       ))
-    } catch (e) {
-      console.error('Delete error:', e)
+      setErrorMessage('')
+    } catch (e: any) {
+      setErrorMessage(e.message || 'Unable to delete this scan right now.')
     } finally {
       setDeleting(null)
     }
@@ -206,6 +212,13 @@ export default function HistoryScreen() {
         </View>
       </View>
 
+      {errorMessage ? (
+        <View style={styles.errorBanner}>
+          <Warning size={14} color={Colors.danger} weight="fill" />
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      ) : null}
+
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator color={Colors.primary} size="large" />
@@ -243,6 +256,7 @@ export default function HistoryScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          ListFooterComponent={page < Math.ceil(scans.length / pageSize) ? <Text style={styles.moreText}>Showing the latest {pageSize} scans</Text> : null}
         />
       )}
     </View>
@@ -259,6 +273,9 @@ const styles = StyleSheet.create({
   title: { fontFamily: Fonts.extrabold, fontSize: FontSizes['5xl'], color: Colors.textPrimary },
   subtitle: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary, marginTop: 4 },
   searchWrapper: { paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.lg },
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.dangerLight, borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, marginHorizontal: Spacing['2xl'], marginBottom: Spacing.md },
+  errorText: { flex: 1, fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger, lineHeight: 18 },
+  moreText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.textTertiary, textAlign: 'center', paddingVertical: Spacing.lg },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
     borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,

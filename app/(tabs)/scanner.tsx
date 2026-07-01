@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, TextInput, KeyboardAvoidingView,
-  Platform, ScrollView, Dimensions
+  Platform, ScrollView, useWindowDimensions
 } from 'react-native'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useRouter, useFocusEffect } from 'expo-router'
@@ -16,12 +16,14 @@ import {
   Scan, ArrowLeft, Camera, Warning, X
 } from 'phosphor-react-native'
 
-const { width, height } = Dimensions.get('window')
-const FRAME_W = width * 0.86
-const FRAME_H = height * 0.26
+const FRAME_W = 0.86
+const FRAME_H = 0.26
 
 export default function ScannerScreen() {
   const router = useRouter()
+  const { width, height } = useWindowDimensions()
+  const frameW = width * FRAME_W
+  const frameH = height * FRAME_H
   const { user } = useAuthStore()
   const [permission, requestPermission] = useCameraPermissions()
 
@@ -89,6 +91,8 @@ export default function ScannerScreen() {
       error={scanError?.message}
       allowManual={scanError?.allowManual}
       clearError={clearError}
+      frameW={frameW}
+      frameH={frameH}
     />
   )
 }
@@ -212,13 +216,14 @@ function ManualScreen({
 function CameraScreen({
   cameraRef, cameraActive, cameraReady, onCameraReady,
   flash, onFlashToggle, onCapture, onGallery, onManual,
-  error, allowManual, clearError
+  error, allowManual, clearError, frameW, frameH
 }: {
   cameraRef: React.RefObject<CameraView | null>
   cameraActive: boolean; cameraReady: boolean; onCameraReady: () => void
   flash: boolean; onFlashToggle: () => void
   onCapture: () => void; onGallery: () => void; onManual: () => void
   error?: string; allowManual?: boolean; clearError: () => void
+  frameW: number; frameH: number
 }) {
   return (
     <View style={styles.cameraContainer}>
@@ -252,7 +257,7 @@ function CameraScreen({
 
       {/* Scan frame */}
       <View style={styles.frameWrapper}>
-        <View style={styles.frame}>
+        <View style={[styles.frame, { width: frameW, height: frameH }]}>
           <View style={[styles.corner, styles.tl]} />
           <View style={[styles.corner, styles.tr]} />
           <View style={[styles.corner, styles.bl]} />
@@ -362,13 +367,13 @@ const styles = StyleSheet.create({
   flashBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   topInstruction: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: 'rgba(255,255,255,0.45)', letterSpacing: 0.3 },
   frameWrapper: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  frame: { width: FRAME_W, height: FRAME_H, alignItems: 'center', justifyContent: 'center' },
+  frame: { alignItems: 'center', justifyContent: 'center' },
   corner: { position: 'absolute', width: 22, height: 22, borderColor: Colors.primary },
   tl: { top: 0, left: 0, borderTopWidth: 2.5, borderLeftWidth: 2.5, borderTopLeftRadius: 5 },
   tr: { top: 0, right: 0, borderTopWidth: 2.5, borderRightWidth: 2.5, borderTopRightRadius: 5 },
   bl: { bottom: 0, left: 0, borderBottomWidth: 2.5, borderLeftWidth: 2.5, borderBottomLeftRadius: 5 },
   br: { bottom: 0, right: 0, borderBottomWidth: 2.5, borderRightWidth: 2.5, borderBottomRightRadius: 5 },
-  scanLine: { width: FRAME_W - 40, height: 1.5, backgroundColor: `${Colors.primary}40` },
+  scanLine: { width: '100%', maxWidth: 240, height: 1.5, backgroundColor: `${Colors.primary}40` },
   cameraErrorBanner: { position: 'absolute', left: 16, right: 16, bottom: 160, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(239,68,68,0.9)', borderRadius: Radius.xl, padding: Spacing.lg },
   cameraErrorText: { flex: 1, fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: '#fff', lineHeight: 18 },
   cameraErrorActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },

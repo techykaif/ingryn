@@ -112,56 +112,67 @@ async function fetchIngredientsByIds(
 
 // Save new ingredients returned by Gemini
 async function saveIngredients(analysis: IngredientAnalysis[]): Promise<string[]> {
-  const ingredientIds: string[] = []
+  const normalizedIngredients = analysis
+    .map(ingredient => ({
+      name: ingredient.name.toLowerCase().trim(),
+      aliases: ingredient.aliases || [],
+      category: ingredient.category || 'Unknown',
+      description: ingredient.description || '',
+      personal_flag: ingredient.personal_flag ?? null,
+      safety_level: ingredient.safety_level || 'unknown',
+      health_concerns: ingredient.health_concerns || [],
+      country_status: ingredient.country_status || {},
+    }))
+    .filter(item => item.name.length > 0)
 
-  for (const ingredient of analysis) {
-    const normalizedName = ingredient.name.toLowerCase().trim()
+  if (normalizedIngredients.length === 0) return []
 
-    const { data: existing } = await supabase
+  const names = normalizedIngredients.map(item => item.name)
+  const { data: existing } = await supabase
+    .from('ingredients')
+    .select('id, name')
+    .in('name', names)
+
+  const existingByName = new Map<string, string>((existing || []).map(row => [row.name, row.id]))
+  const insertPayload = normalizedIngredients.filter(item => !existingByName.has(item.name))
+
+  if (insertPayload.length > 0) {
+    const { data: insertedRows, error: insertError } = await supabase
       .from('ingredients')
-      .select('id')
-      .eq('name', normalizedName)
-      .maybeSingle()
+      .insert(insertPayload.map(item => ({
+        name: item.name,
+        aliases: item.aliases,
+        category: item.category,
+        description: item.description,
+        personal_flag: item.personal_flag,
+        safety_level: item.safety_level,
+        health_concerns: item.health_concerns,
+        country_status: item.country_status,
+      })))
+      .select('id, name')
 
-    if (existing?.id) {
-      ingredientIds.push(existing.id)
-      continue
-    }
-
-    const { data: newIngredient, error: insertError } = await supabase
-      .from('ingredients')
-      .insert({
-        name: normalizedName,
-        aliases: ingredient.aliases || [],
-        category: ingredient.category || 'Unknown',
-        description: ingredient.description || '',
-        personal_flag: ingredient.personal_flag ?? null,
-        safety_level: ingredient.safety_level || 'unknown',
-        health_concerns: ingredient.health_concerns || [],
-        country_status: ingredient.country_status || {},
-      })
-      .select('id')
-      .single()
-
-    // Handle race condition
     if (insertError) {
       if (insertError.code === '23505') {
         const { data: raceExisting } = await supabase
           .from('ingredients')
-          .select('id')
-          .eq('name', normalizedName)
-          .maybeSingle()
-        if (raceExisting?.id) ingredientIds.push(raceExisting.id)
+          .select('id, name')
+          .in('name', names)
+        for (const row of raceExisting || []) {
+          existingByName.set(row.name, row.id)
+        }
+      } else {
+        throw insertError
       }
-      continue
-    }
-
-    if (newIngredient?.id) {
-      ingredientIds.push(newIngredient.id)
+    } else {
+      for (const row of insertedRows || []) {
+        existingByName.set(row.name, row.id)
+      }
     }
   }
 
-  return ingredientIds
+  return normalizedIngredients
+    .map(item => existingByName.get(item.name))
+    .filter((id): id is string => Boolean(id))
 }
 
 async function saveScan({
