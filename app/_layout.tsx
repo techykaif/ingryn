@@ -67,9 +67,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (currentSegment === 'onboarding') return
 
     const inTabsGroup = segments[0] === '(tabs)'
+    const allowedTopLevelRoutes = new Set(['results', 'ingredient', 'legal'])
     // Root index has no segments — the user just opened the app
     const onRootIndex = !inAuthGroup && !inTabsGroup
-      && segments[0] !== 'results' && segments[0] !== 'ingredient'
+      && !allowedTopLevelRoutes.has(segments[0] ?? '')
 
     if (user) {
       // Redirect logged-in users to home if they're on the auth screens

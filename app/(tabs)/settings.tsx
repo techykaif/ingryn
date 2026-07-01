@@ -301,13 +301,13 @@ export default function SettingsScreen() {
           icon={<ShieldCheck size={18} color={Colors.info} weight="fill" />}
           iconBg={Colors.infoLight}
           label="Privacy policy"
-          onPress={() => Alert.alert('Coming soon', 'Privacy policy will be available before launch.')}
+          onPress={() => router.push({ pathname: '/legal/[type]', params: { type: 'privacy' } })}
         />
         <SettingRow
           icon={<FileText size={18} color={Colors.info} weight="fill" />}
           iconBg={Colors.infoLight}
           label="Terms of service"
-          onPress={() => Alert.alert('Coming soon', 'Terms of service will be available before launch.')}
+          onPress={() => router.push({ pathname: '/legal/[type]', params: { type: 'terms' } })}
         />
 
         {/* ─── About section ─── */}
