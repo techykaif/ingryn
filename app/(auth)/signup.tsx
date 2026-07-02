@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, ScrollView, Alert
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -62,6 +63,7 @@ const pwStyles = StyleSheet.create({
 
 export default function SignUpScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -111,7 +113,7 @@ export default function SignUpScreen() {
       <View style={styles.blob2} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? insets.top + 12 : 24 }]}> 
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
         </TouchableOpacity>
@@ -233,7 +235,7 @@ export default function SignUpScreen() {
         </View>
 
         {/* Google */}
-        <TouchableOpacity style={[styles.googleBtn, Shadows.sm]} activeOpacity={0.8}>
+        <TouchableOpacity style={[styles.googleBtn, Shadows.sm]} activeOpacity={0.8} onPress={() => setErrorMsg('Google sign-in is coming soon. Please use email and password for now.')}>
           <Text style={styles.googleIcon}>G</Text>
           <Text style={styles.googleText}>Continue with Google</Text>
         </TouchableOpacity>
@@ -269,7 +271,6 @@ const styles = StyleSheet.create({
   blob2: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: `${Colors.primary}08`, bottom: 60, left: -60 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 60 : 48,
     paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl,
   },
   backBtn: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },

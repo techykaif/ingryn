@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Platform } from 'react-native'
 import { CameraView } from 'expo-camera'
 import * as ImagePicker from 'expo-image-picker'
@@ -18,6 +18,8 @@ const PROCESSING_TIPS = [
   'Almost there...',
 ]
 
+const PROCESSING_TIMEOUT_MS = 30_000
+
 export function useScanner(userId: string, onSuccess: (scanId: string) => void) {
   const { preferences } = useDietaryPreferences()
   const [step, setStep] = useState<ScanStep>('camera')
@@ -29,6 +31,8 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
   const [scanError, setScanError] = useState<ScanError>(null)
   const cameraRef = useRef<CameraView>(null)
   const tipInterval = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const requestIdRef = useRef(0)
 
   const startTipCycle = useCallback(() => {
     if (tipInterval.current) clearInterval(tipInterval.current)
@@ -46,6 +50,13 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     }
   }, [])
 
+  const clearProcessingTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }, [])
+
   const activateCamera = useCallback(() => {
     setCameraActive(true)
     setScanError(null)
@@ -55,13 +66,36 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     setCameraActive(false)
     setCameraReady(false)
     stopTipCycle()
-  }, [stopTipCycle])
+    clearProcessingTimeout()
+  }, [clearProcessingTimeout, stopTipCycle])
+
+  useEffect(() => {
+    return () => {
+      stopTipCycle()
+      clearProcessingTimeout()
+    }
+  }, [clearProcessingTimeout, stopTipCycle])
 
   const processText = useCallback(async (text: string) => {
     setScanError(null)
     setStep('processing')
     startTipCycle()
+    requestIdRef.current += 1
+    const requestId = requestIdRef.current
+
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => {
+      if (requestIdRef.current !== requestId) return
+      stopTipCycle()
+      clearProcessingTimeout()
+      setStep(IS_WEB ? 'manual' : 'camera')
+      setScanError({ message: 'The analysis took too long. Please try again.', allowManual: true })
+    }, PROCESSING_TIMEOUT_MS)
+
     const { scanId, error } = await saveAnalysis(text, userId, preferences)
+    clearProcessingTimeout()
+    if (requestIdRef.current !== requestId) return
+
     stopTipCycle()
 
     if (error || !scanId) {
@@ -74,7 +108,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     setScanError(null)
     setStep(IS_WEB ? 'manual' : 'camera')
     onSuccess(scanId)
-  }, [userId, preferences, startTipCycle, stopTipCycle, onSuccess])
+  }, [userId, preferences, clearProcessingTimeout, startTipCycle, stopTipCycle, onSuccess])
 
   const recognizeFromUri = useCallback(async (uri: string) => {
     if (IS_WEB) {
@@ -107,20 +141,15 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     }
   }, [stopTipCycle, processText])
 
-  // ─── KEY FIX: use takePictureAsync (in-app) instead of launchCameraAsync
-  // launchCameraAsync launches the native camera app externally — on Android
-  // when returning from an external app, the React Native Activity gets
-  // destroyed and the app appears to "restart". takePictureAsync keeps
-  // everything inside the app and avoids this entirely.
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current || !cameraReady) return
     setScanError(null)
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.75,        // reduce size to avoid OOM on low-end devices
+        quality: 0.75,
         base64: false,
-        skipProcessing: true, // faster capture, no post-processing
+        skipProcessing: true,
       })
 
       if (!photo?.uri) return

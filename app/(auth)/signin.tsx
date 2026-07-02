@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, ScrollView
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -36,6 +37,7 @@ function getAuthErrorMessage(error: { message: string; status?: number }): strin
 
 export default function SignInScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -135,7 +137,7 @@ export default function SignInScreen() {
         <StatusBar style="dark" />
         <View style={styles.blob1} />
 
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? insets.top + 12 : 24 }]}>
           <TouchableOpacity
             onPress={() => { setForgotMode(false); setResetSent(false); setResetEmail(''); setResetError('') }}
             style={styles.backBtn}
@@ -224,7 +226,7 @@ export default function SignInScreen() {
       <View style={styles.blob1} />
       <View style={styles.blob2} />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? insets.top + 12 : 24 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
         </TouchableOpacity>
@@ -330,7 +332,7 @@ export default function SignInScreen() {
         </View>
 
         {/* Google button */}
-        <TouchableOpacity style={[styles.googleBtn, Shadows.sm]} activeOpacity={0.8}>
+        <TouchableOpacity style={[styles.googleBtn, Shadows.sm]} activeOpacity={0.8} onPress={() => setErrorMsg('Google sign-in is coming soon. Please use email and password for now.') }>
           <Text style={styles.googleIcon}>G</Text>
           <Text style={styles.googleText}>Continue with Google</Text>
         </TouchableOpacity>
@@ -349,7 +351,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   blob1: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: `${Colors.primary}10`, top: -100, right: -80 },
   blob2: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: `${Colors.primary}08`, bottom: 60, left: -60 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl },
   backBtn: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },
   logoMini: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   logoMiniText: { fontFamily: Fonts.extrabold, fontSize: FontSizes.sm, color: Colors.textPrimary, letterSpacing: 3 },

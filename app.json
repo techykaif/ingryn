@@ -55,7 +55,8 @@
           "cameraPermission": "INGRYN needs camera access to scan ingredient labels.",
           "photosPermission": "INGRYN needs photo library access to scan ingredient labels from images."
         }
-      ]
+      ],
+      "expo-splash-screen"
     ],
     "experiments": {
       "typedRoutes": true

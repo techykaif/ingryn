@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View, ActivityIndicator } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import 'react-native-url-polyfill/auto'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/index'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Colors } from '@/constants/theme'
+import { getOnboardingComplete } from '@/constants/onboarding'
 import {
   useFonts,
   PlusJakartaSans_200ExtraLight,
@@ -23,9 +23,7 @@ import {
   PlusJakartaSans_700Bold_Italic,
 } from '@expo-google-fonts/plus-jakarta-sans'
 
-const ONBOARDING_KEY = 'ingryn_onboarding_complete'
-
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AuthGate({ children }: { children: ReactNode }) {
   const { user, setUser } = useAuthStore()
   const [authLoading, setAuthLoading] = useState(true)
   const [onboardingComplete, setOnboardingComplete] = useState(false)
@@ -33,69 +31,83 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const segments = useSegments()
 
-  // ─── Auth listener ─────────────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setAuthLoading(false)
-    })
+    let mounted = true
+
+    const loadSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (mounted) setUser(session?.user ?? null)
+      } catch (error) {
+        console.warn('Failed to load session', error)
+      } finally {
+        if (mounted) setAuthLoading(false)
+      }
+    }
+
+    void loadSession()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      if (mounted) setUser(session?.user ?? null)
     })
 
-    return () => subscription.unsubscribe()
-  }, [])
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  }, [setUser])
 
-  // ─── Re-read onboarding flag on every segment change ───────────────
-  // Direct AsyncStorage read avoids the two-instance hook problem
   useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_KEY).then(value => {
-      setOnboardingComplete(value !== null)
-      setOnboardingChecked(true)
-    })
+    let mounted = true
+
+    const loadOnboarding = async () => {
+      try {
+        const complete = await getOnboardingComplete()
+        if (mounted) {
+          setOnboardingComplete(complete)
+          setOnboardingChecked(true)
+        }
+      } catch (error) {
+        if (mounted) {
+          setOnboardingComplete(false)
+          setOnboardingChecked(true)
+        }
+      }
+    }
+
+    void loadOnboarding()
+
+    return () => {
+      mounted = false
+    }
   }, [segments])
 
-  // ─── Routing logic ─────────────────────────────────────────────────
   useEffect(() => {
     if (authLoading || !onboardingChecked) return
 
     const inAuthGroup = segments[0] === '(auth)'
     const currentSegment = segments[1]
-
-    // Never interrupt the onboarding screen itself
     if (currentSegment === 'onboarding') return
 
-    // Public pages that must render regardless of auth state — legal pages
-    // need to be viewable before signup, reset-password needs to work
-    // whether or not a session exists yet. Never gate these.
     const publicStandaloneRoutes = new Set(['legal', 'reset-password'])
     if (publicStandaloneRoutes.has(segments[0] ?? '')) return
 
     const inTabsGroup = segments[0] === '(tabs)'
-    // Detail routes that only make sense when signed in — excluded from the
-    // logged-in "bounce to home" check, but still gated for logged-out users
     const authOnlyDetailRoutes = new Set(['results', 'ingredient'])
-    const onRootIndex = !inAuthGroup && !inTabsGroup
-      && !authOnlyDetailRoutes.has(segments[0] ?? '')
+    const onRootIndex = !inAuthGroup && !inTabsGroup && !authOnlyDetailRoutes.has(segments[0] ?? '')
 
     if (user) {
-      // Redirect logged-in users to home if they're on the auth screens
-      // or on the root index (which just shows a loader)
       if (inAuthGroup || onRootIndex) {
         router.replace('/(tabs)/home')
       }
     } else {
-      // KEY: only redirect to onboarding if NOT already in auth group
-      // Without this, navigating onboarding→welcome bounces back
       if (!onboardingComplete && !inAuthGroup) {
         router.replace('/(auth)/onboarding')
       } else if (onboardingComplete && !inAuthGroup) {
         router.replace('/(auth)/welcome')
       }
-      // If inAuthGroup → do nothing, let screens handle their own navigation
     }
-  }, [user, segments, authLoading, onboardingChecked, onboardingComplete])
+  }, [user, segments, authLoading, onboardingChecked, onboardingComplete, router])
 
   if (authLoading || !onboardingChecked) {
     return (

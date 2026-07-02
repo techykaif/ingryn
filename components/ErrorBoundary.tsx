@@ -2,6 +2,7 @@ import React from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity
 } from 'react-native'
+import { Colors, Fonts, FontSizes, Radius, Spacing } from '@/constants/theme'
 
 type Props = {
   children: React.ReactNode
@@ -66,42 +67,45 @@ export class ErrorBoundary extends React.Component<Props, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080808',
+    backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
-    gap: 16,
+    paddingHorizontal: Spacing['3xl'],
+    gap: Spacing.lg,
   },
   iconBox: {
-    width: 80, height: 80, borderRadius: 20,
-    backgroundColor: '#E24B4A15', borderWidth: 1,
-    borderColor: '#E24B4A30', alignItems: 'center',
-    justifyContent: 'center', marginBottom: 8,
+    width: 80, height: 80, borderRadius: Radius.xl,
+    backgroundColor: Colors.dangerLight, borderWidth: 1,
+    borderColor: Colors.danger, alignItems: 'center',
+    justifyContent: 'center', marginBottom: Spacing.sm,
   },
   icon: { fontSize: 36 },
   title: {
-    fontSize: 24, fontWeight: '700',
-    color: '#fff', textAlign: 'center',
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes['3xl'],
+    color: Colors.textPrimary, textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15, color: '#555',
+    fontFamily: Fonts.regular,
+    fontSize: FontSizes.base, color: Colors.textSecondary,
     textAlign: 'center', lineHeight: 24,
   },
   errorBox: {
-    backgroundColor: '#111', borderRadius: 12,
-    borderWidth: 1, borderColor: '#1a1a1a',
-    padding: 16, width: '100%',
+    backgroundColor: Colors.surface, borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.border,
+    padding: Spacing.lg, width: '100%',
   },
   errorText: {
-    fontSize: 12, color: '#E24B4A',
+    fontSize: FontSizes.xs, color: Colors.danger,
     fontFamily: 'monospace',
   },
   button: {
-    backgroundColor: '#00E5A0', borderRadius: 14,
-    paddingVertical: 16, paddingHorizontal: 40,
-    marginTop: 8,
+    backgroundColor: Colors.primary, borderRadius: Radius.xl,
+    paddingVertical: Spacing.lg, paddingHorizontal: Spacing['3xl'],
+    marginTop: Spacing.sm,
   },
   buttonText: {
-    fontSize: 16, fontWeight: '700', color: '#080808',
+    fontFamily: Fonts.bold,
+    fontSize: FontSizes.lg, color: Colors.textInverse,
   },
 })

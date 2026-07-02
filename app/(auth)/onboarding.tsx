@@ -1,15 +1,13 @@
 import { useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Dimensions, ScrollView, NativeScrollEvent,
+  ScrollView, NativeScrollEvent,
   NativeSyntheticEvent, Platform
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-
-const { width } = Dimensions.get('window')
-const ONBOARDING_KEY = 'ingryn_onboarding_complete'
+import { useWindowDimensions } from 'react-native'
+import { setOnboardingComplete } from '@/constants/onboarding'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const COLORS = {
@@ -289,6 +287,7 @@ const previewStyles = StyleSheet.create({
 
 export default function OnboardingScreen() {
   const router = useRouter()
+  const { width } = useWindowDimensions()
   const [activeIndex, setActiveIndex] = useState(0)
   const scrollRef = useRef<ScrollView>(null)
 
@@ -307,17 +306,17 @@ export default function OnboardingScreen() {
   }
 
   async function handleGetStarted() {
-    await AsyncStorage.setItem(ONBOARDING_KEY, 'true')
+    await setOnboardingComplete()
     router.replace('/(auth)/welcome')
   }
 
   async function handleSignIn() {
-    await AsyncStorage.setItem(ONBOARDING_KEY, 'true')
+    await setOnboardingComplete()
     router.replace('/(auth)/signin')
   }
 
   async function handleSkip() {
-    await AsyncStorage.setItem(ONBOARDING_KEY, 'true')
+    await setOnboardingComplete()
     router.replace('/(auth)/welcome')
   }
 
@@ -361,7 +360,7 @@ export default function OnboardingScreen() {
         style={styles.scrollView}
       >
         {SLIDES.map((s, index) => (
-          <View key={s.id} style={styles.slide}>
+          <View key={s.id} style={[styles.slide, { width }]}>
             {/* Tag */}
             <View style={[styles.tagChip, {
               backgroundColor: s.tagColor + '18',
@@ -484,7 +483,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   slide: {
-    width,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
