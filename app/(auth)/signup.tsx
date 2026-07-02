@@ -235,7 +235,7 @@ export default function SignUpScreen() {
         </View>
 
         {/* Google */}
-        <TouchableOpacity style={[styles.googleBtn, Shadows.sm]} activeOpacity={0.8} onPress={() => Alert.alert('Coming soon', 'Google sign-in will be available soon.')}>
+        <TouchableOpacity style={[styles.googleBtn, Shadows.sm]} activeOpacity={0.8} onPress={() => setErrorMsg('Google sign-in is coming soon. Please use email and password for now.')}>
           <Text style={styles.googleIcon}>G</Text>
           <Text style={styles.googleText}>Continue with Google</Text>
         </TouchableOpacity>

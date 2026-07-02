@@ -139,7 +139,7 @@ async function saveIngredients(analysis: IngredientAnalysis[]): Promise<string[]
   if (insertPayload.length > 0) {
     const { data: insertedRows, error: insertError } = await supabase
       .from('ingredients')
-      .insert(insertPayload.map(item => ({
+      .upsert(insertPayload.map(item => ({
         name: item.name,
         aliases: item.aliases,
         category: item.category,
@@ -148,23 +148,30 @@ async function saveIngredients(analysis: IngredientAnalysis[]): Promise<string[]
         safety_level: item.safety_level,
         health_concerns: item.health_concerns,
         country_status: item.country_status,
-      })))
+      })), { onConflict: 'name', ignoreDuplicates: true })
       .select('id, name')
 
     if (insertError) {
-      if (insertError.code === '23505') {
-        const { data: raceExisting } = await supabase
-          .from('ingredients')
-          .select('id, name')
-          .in('name', names)
-        for (const row of raceExisting || []) {
-          existingByName.set(row.name, row.id)
-        }
-      } else {
-        throw insertError
-      }
+      throw insertError
     } else {
-      for (const row of insertedRows || []) {
+      }
+
+    for (const row of insertedRows || []) {
+      existingByName.set(row.name, row.id)
+    }
+
+    // ignoreDuplicates means a row skipped due to a concurrent insert won't
+    // come back from .select() above — pick up its id with one more lookup
+    const stillMissing = insertPayload
+      .map(item => item.name)
+      .filter(name => !existingByName.has(name))
+
+    if (stillMissing.length > 0) {
+      const { data: raceExisting } = await supabase
+        .from('ingredients')
+        .select('id, name')
+        .in('name', stillMissing)
+      for (const row of raceExisting || []) {
         existingByName.set(row.name, row.id)
       }
     }

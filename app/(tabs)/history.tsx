@@ -32,7 +32,9 @@ export default function HistoryScreen() {
   const [searchQuery, setSearchQuery] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const pageSize = 10
 
   const fetchScans = useCallback(async () => {
@@ -50,12 +52,42 @@ export default function HistoryScreen() {
       if (error) throw error
       setScans(data || [])
       setFiltered(data || [])
+      setPage(0)
+      setHasMore((data?.length ?? 0) === pageSize)
     } catch (e: any) {
       setErrorMessage(e.message || 'Unable to load history right now.')
     } finally {
       setLoading(false)
     }
   }, [user, pageSize])
+
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore || !user?.id || searchQuery) return
+    setLoadingMore(true)
+    try {
+      const nextPage = page + 1
+      const from = nextPage * pageSize
+      const to = from + pageSize - 1
+      const { data, error } = await supabase
+        .from('scans')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+
+      if (error) throw error
+      const newRows = data || []
+      const combined = [...scans, ...newRows]
+      setScans(combined)
+      setFiltered(combined)
+      setPage(nextPage)
+      setHasMore(newRows.length === pageSize)
+    } catch (e: any) {
+      setErrorMessage(e.message || 'Unable to load more scans right now.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loading, loadingMore, hasMore, user, page, pageSize, searchQuery, scans])
 
   useFocusEffect(useCallback(() => { fetchScans() }, [fetchScans]))
 
@@ -256,7 +288,15 @@ export default function HistoryScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          ListFooterComponent={page < Math.ceil(scans.length / pageSize) ? <Text style={styles.moreText}>Showing the latest {pageSize} scans</Text> : null}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore
+              ? <ActivityIndicator color={Colors.primary} style={styles.loadMoreSpinner} />
+              : searchQuery && hasMore
+                ? <Text style={styles.moreText}>Showing results from loaded scans only</Text>
+                : null
+          }
         />
       )}
     </View>
@@ -276,6 +316,7 @@ const styles = StyleSheet.create({
   errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.dangerLight, borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, marginHorizontal: Spacing['2xl'], marginBottom: Spacing.md },
   errorText: { flex: 1, fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger, lineHeight: 18 },
   moreText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.textTertiary, textAlign: 'center', paddingVertical: Spacing.lg },
+  loadMoreSpinner: { paddingVertical: Spacing.lg },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
     borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,

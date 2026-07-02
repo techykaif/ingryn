@@ -137,7 +137,7 @@ export default function SignInScreen() {
         <StatusBar style="dark" />
         <View style={styles.blob1} />
 
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? insets.top + 12 : 24 }]}>
           <TouchableOpacity
             onPress={() => { setForgotMode(false); setResetSent(false); setResetEmail(''); setResetError('') }}
             style={styles.backBtn}
@@ -226,7 +226,7 @@ export default function SignInScreen() {
       <View style={styles.blob1} />
       <View style={styles.blob2} />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? insets.top + 12 : 24 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
         </TouchableOpacity>
