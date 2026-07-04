@@ -86,7 +86,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     if (authLoading || !onboardingChecked) return
 
     const inAuthGroup = segments[0] === '(auth)'
-    const currentSegment = segments[1]
+    const currentSegment = (segments as string[])[1]
     if (currentSegment === 'onboarding') return
 
     const publicStandaloneRoutes = new Set(['legal', 'reset-password'])

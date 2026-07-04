@@ -2,12 +2,13 @@ import { useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, TextInput, ActivityIndicator,
-  Alert, Platform
+  Platform
 } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
   MagnifyingGlass, ClockCounterClockwise, Trash,
@@ -31,6 +32,7 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
@@ -104,14 +106,7 @@ export default function HistoryScreen() {
   }
 
   function confirmDelete(scanId: string) {
-    Alert.alert(
-      'Delete scan',
-      'This scan will be permanently removed from your history.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deleteScan(scanId) },
-      ]
-    )
+    setConfirmDeleteId(scanId)
   }
 
   async function deleteScan(scanId: string) {
@@ -299,6 +294,20 @@ export default function HistoryScreen() {
           }
         />
       )}
+
+      <ConfirmDialog
+        visible={!!confirmDeleteId}
+        title="Delete scan"
+        message="This scan will be permanently removed from your history."
+        confirmLabel="Delete"
+        destructive
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={() => {
+          const id = confirmDeleteId
+          setConfirmDeleteId(null)
+          if (id) deleteScan(id)
+        }}
+      />
     </View>
   )
 }

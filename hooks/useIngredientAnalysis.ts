@@ -112,13 +112,19 @@ async function fetchIngredientsByIds(
 
 // Save new ingredients returned by Gemini
 async function saveIngredients(analysis: IngredientAnalysis[]): Promise<string[]> {
+  // NOTE: personal_flag is intentionally NOT included here. This ingredient
+  // record is cached globally and shared across all users, so any flag Gemini
+  // returns is only valid for whichever user's preferences triggered this
+  // particular analysis. Persisting it would leak that user's health context
+  // to every other user who later hits the cache for this ingredient.
+  // Personal relevance is computed per-viewer, client-side, in getPersonalFlag()
+  // on the results screen instead.
   const normalizedIngredients = analysis
     .map(ingredient => ({
       name: ingredient.name.toLowerCase().trim(),
       aliases: ingredient.aliases || [],
       category: ingredient.category || 'Unknown',
       description: ingredient.description || '',
-      personal_flag: ingredient.personal_flag ?? null,
       safety_level: ingredient.safety_level || 'unknown',
       health_concerns: ingredient.health_concerns || [],
       country_status: ingredient.country_status || {},
@@ -144,7 +150,6 @@ async function saveIngredients(analysis: IngredientAnalysis[]): Promise<string[]
         aliases: item.aliases,
         category: item.category,
         description: item.description,
-        personal_flag: item.personal_flag,
         safety_level: item.safety_level,
         health_concerns: item.health_concerns,
         country_status: item.country_status,
@@ -153,8 +158,7 @@ async function saveIngredients(analysis: IngredientAnalysis[]): Promise<string[]
 
     if (insertError) {
       throw insertError
-    } else {
-      }
+    }
 
     for (const row of insertedRows || []) {
       existingByName.set(row.name, row.id)

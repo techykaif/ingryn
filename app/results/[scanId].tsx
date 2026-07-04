@@ -23,7 +23,6 @@ type Ingredient = {
   safety_level: 'safe' | 'caution' | 'harmful' | 'unknown'
   health_concerns: string[]
   country_status: Record<string, string>
-  personal_flag?: string | null
 }
 
 type ScanData = {
@@ -95,7 +94,10 @@ export default function ResultsScreen() {
 
   function getPersonalFlag(ingredient: Ingredient): string | null {
     if (!hasPreferences) return null
-    if (ingredient.personal_flag) return ingredient.personal_flag
+    // Deliberately does not read ingredient.personal_flag: that field lives on a
+    // globally shared cache row and may reflect a different user's preferences
+    // from whenever this ingredient was first analyzed. Relevance to the current
+    // viewer is always computed fresh, below, from their own saved preferences.
 
     const haystack = [ingredient.name, ...(ingredient.aliases || []), ingredient.category]
       .join(' ').toLowerCase()

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, ScrollView, Alert
+  ActivityIndicator, ScrollView
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -13,7 +13,7 @@ import { validateEmail } from '@/lib/emailValidator'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
   ArrowLeft, EnvelopeSimple, Lock, Eye, EyeSlash,
-  Warning, ArrowRight, Leaf, UserCircle
+  Warning, ArrowRight, Leaf, UserCircle, CheckCircle
 } from 'phosphor-react-native'
 
 function getSignUpErrorMessage(error: { message: string; status?: number }): string {
@@ -70,6 +70,7 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [verificationSent, setVerificationSent] = useState(false)
 
   async function handleSignUp() {
     setErrorMsg('')
@@ -90,10 +91,7 @@ export default function SignUpScreen() {
         setErrorMsg(getSignUpErrorMessage(error))
       } else if (!data?.session) {
         // Email verification required — session is null until confirmed
-        Alert.alert(
-          'Check your email',
-          'We sent a verification link to your email address. Please verify to continue.',
-        )
+        setVerificationSent(true)
       }
       // If session exists, AuthGate in _layout.tsx handles the redirect
     } catch (e: any) {
@@ -197,6 +195,16 @@ export default function SignUpScreen() {
           </View>
         </View>
 
+        {/* Verification sent banner */}
+        {verificationSent ? (
+          <View style={styles.successBanner}>
+            <CheckCircle size={14} color={Colors.success} weight="fill" />
+            <Text style={styles.successBannerText}>
+              Check your email — we sent a verification link. Please verify to continue.
+            </Text>
+          </View>
+        ) : null}
+
         {/* Error banner */}
         {errorMsg ? (
           <View style={styles.errorBanner}>
@@ -296,6 +304,12 @@ const styles = StyleSheet.create({
     padding: Spacing.lg, marginBottom: Spacing.lg,
   },
   errorBannerText: { flex: 1, fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger, lineHeight: 18 },
+  successBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: Colors.successLight, borderRadius: Radius.xl,
+    padding: Spacing.lg, marginBottom: Spacing.lg,
+  },
+  successBannerText: { flex: 1, fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.success, lineHeight: 18 },
   primaryBtnWrapper: { borderRadius: Radius.xl, overflow: 'hidden', marginBottom: Spacing.xl },
   btnDisabled: { opacity: 0.5 },
   primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: Spacing.xl },

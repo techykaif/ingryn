@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, TextInput, ActivityIndicator,
-  Platform, Alert
+  Platform
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import { DietaryPreferencesModal } from '@/components/DietaryPreferencesModal'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import {
   User, PencilSimple, Lock, SignOut, Trash,
   ShieldCheck, FileText, Info, CaretRight,
@@ -40,6 +41,11 @@ export default function SettingsScreen() {
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState(false)
+
+  // Delete account
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const displayName = user?.user_metadata?.full_name || user?.email || 'User'
   const email = user?.email || ''
@@ -93,21 +99,12 @@ export default function SettingsScreen() {
   }
 
   function confirmDeleteAccount() {
-    Alert.alert(
-      'Delete account',
-      'This will permanently delete your account and all scan history. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete account',
-          style: 'destructive',
-          onPress: deleteAccount,
-        },
-      ]
-    )
+    setDeleteError('')
+    setShowDeleteConfirm(true)
   }
 
   async function deleteAccount() {
+    setDeleting(true)
     try {
       const { error } = await supabase.rpc('delete_user_account', {
         user_id: user?.id,
@@ -117,7 +114,9 @@ export default function SettingsScreen() {
       setUser(null)
       router.replace('/(auth)/welcome')
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Could not delete account.')
+      setDeleteError(e.message || 'Could not delete account. Please try again.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -166,6 +165,12 @@ export default function SettingsScreen() {
             <Text style={styles.successText}>Password changed successfully</Text>
           </View>
         )}
+        {deleteError ? (
+          <View style={styles.deleteErrorBanner}>
+            <Trash size={16} color={Colors.danger} weight="fill" />
+            <Text style={styles.deleteErrorText}>{deleteError}</Text>
+          </View>
+        ) : null}
 
         {/* ─── Account section ─── */}
         <SectionHeader title="Account" />
@@ -339,9 +344,15 @@ export default function SettingsScreen() {
         <TouchableOpacity
           style={styles.deleteAccountBtn}
           onPress={confirmDeleteAccount}
+          disabled={deleting}
         >
-          <Trash size={14} color={Colors.textTertiary} weight="regular" />
-          <Text style={styles.deleteAccountText}>Delete account</Text>
+          {deleting
+            ? <ActivityIndicator size="small" color={Colors.textTertiary} />
+            : <Trash size={14} color={Colors.textTertiary} weight="regular" />
+          }
+          <Text style={styles.deleteAccountText}>
+            {deleting ? 'Deleting account…' : 'Delete account'}
+          </Text>
         </TouchableOpacity>
 
       </ScrollView>
@@ -349,6 +360,19 @@ export default function SettingsScreen() {
       <DietaryPreferencesModal
         visible={showDietaryModal}
         onClose={() => setShowDietaryModal(false)}
+      />
+
+      <ConfirmDialog
+        visible={showDeleteConfirm}
+        title="Delete account"
+        message="This will permanently delete your account and all scan history. This cannot be undone."
+        confirmLabel="Delete account"
+        destructive
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          setShowDeleteConfirm(false)
+          deleteAccount()
+        }}
       />
     </View>
   )
@@ -469,6 +493,24 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.medium,
     fontSize: FontSizes.sm,
     color: Colors.success,
+  },
+  deleteErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.dangerLight,
+    borderRadius: Radius.lg,
+    marginHorizontal: Spacing['2xl'],
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  deleteErrorText: {
+    flex: 1,
+    fontFamily: Fonts.medium,
+    fontSize: FontSizes.sm,
+    color: Colors.danger,
+    lineHeight: 18,
   },
 
   // Section header
