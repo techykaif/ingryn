@@ -3,12 +3,12 @@ import { Stack, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View, ActivityIndicator } from 'react-native'
+import * as SplashScreen from 'expo-splash-screen'
 import 'react-native-url-polyfill/auto'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/index'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Colors } from '@/constants/theme'
-import { getOnboardingComplete } from '@/constants/onboarding'
 import {
   useFonts,
   PlusJakartaSans_200ExtraLight,
@@ -23,11 +23,15 @@ import {
   PlusJakartaSans_700Bold_Italic,
 } from '@expo-google-fonts/plus-jakarta-sans'
 
+// Keep the native splash screen (assets/splash-icon.png) visible until fonts
+// are loaded AND the session check has resolved. Without this, Expo hides
+// the native splash the instant JS starts, leaving a blank/spinner flash
+// before real content is ready — this call prevents that flash entirely.
+SplashScreen.preventAutoHideAsync().catch(() => {})
+
 function AuthGate({ children }: { children: ReactNode }) {
   const { user, setUser } = useAuthStore()
   const [authLoading, setAuthLoading] = useState(true)
-  const [onboardingComplete, setOnboardingComplete] = useState(false)
-  const [onboardingChecked, setOnboardingChecked] = useState(false)
   const router = useRouter()
   const segments = useSegments()
 
@@ -58,36 +62,9 @@ function AuthGate({ children }: { children: ReactNode }) {
   }, [setUser])
 
   useEffect(() => {
-    let mounted = true
-
-    const loadOnboarding = async () => {
-      try {
-        const complete = await getOnboardingComplete()
-        if (mounted) {
-          setOnboardingComplete(complete)
-          setOnboardingChecked(true)
-        }
-      } catch (error) {
-        if (mounted) {
-          setOnboardingComplete(false)
-          setOnboardingChecked(true)
-        }
-      }
-    }
-
-    void loadOnboarding()
-
-    return () => {
-      mounted = false
-    }
-  }, [segments])
-
-  useEffect(() => {
-    if (authLoading || !onboardingChecked) return
+    if (authLoading) return
 
     const inAuthGroup = segments[0] === '(auth)'
-    const currentSegment = (segments as string[])[1]
-    if (currentSegment === 'onboarding') return
 
     const publicStandaloneRoutes = new Set(['legal', 'reset-password'])
     if (publicStandaloneRoutes.has(segments[0] ?? '')) return
@@ -101,15 +78,23 @@ function AuthGate({ children }: { children: ReactNode }) {
         router.replace('/(tabs)/home')
       }
     } else {
-      if (!onboardingComplete && !inAuthGroup) {
-        router.replace('/(auth)/onboarding')
-      } else if (onboardingComplete && !inAuthGroup) {
+      // No onboarding step — every signed-out user (new or just logged out)
+      // lands on the welcome screen, which offers both sign up and sign in.
+      if (!inAuthGroup) {
         router.replace('/(auth)/welcome')
       }
     }
-  }, [user, segments, authLoading, onboardingChecked, onboardingComplete, router])
+  }, [user, segments, authLoading, router])
 
-  if (authLoading || !onboardingChecked) {
+  useEffect(() => {
+    if (!authLoading) {
+      // Session check is resolved (and fonts were already loaded before
+      // AuthGate ever mounted — see RootLayout below) — safe to reveal the app.
+      SplashScreen.hideAsync().catch(() => {})
+    }
+  }, [authLoading])
+
+  if (authLoading) {
     return (
       <View style={{
         flex: 1,

@@ -48,6 +48,18 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    // Real ingredient labels are rarely more than a few hundred characters.
+    // Cap generously above that to block abuse (huge payloads run up Gemini
+    // costs and can blow past its context window) without risking false
+    // rejections of legitimate long labels.
+    const MAX_INPUT_LENGTH = 3000
+    if (ingredientText.length > MAX_INPUT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `ingredientText exceeds maximum length of ${MAX_INPUT_LENGTH} characters` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      )
+    }
+
     const cleanedInput = ingredientText
       .replace(/\n/g, ", ")
       .replace(/[^\w\s,.()\-\/]/g, "")
