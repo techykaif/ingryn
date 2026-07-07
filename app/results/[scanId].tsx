@@ -53,9 +53,10 @@ export default function ResultsScreen() {
   useEffect(() => { fetchResults() }, [scanId])
 
   async function fetchResults() {
+    if (!user?.id) return
     try {
       const { data: scanData, error: scanError } = await supabase
-        .from('scans').select('id, label, safety_score, created_at, raw_ocr_text, ingredient_ids').eq('id', scanId).single()
+        .from('scans').select('id, label, safety_score, created_at, raw_ocr_text, ingredient_ids').eq('id', scanId).eq('user_id', user.id).single()
       if (scanError) throw scanError
       setScan(scanData)
       setLabelText(scanData.label || '')
