@@ -22,3 +22,25 @@ export const useScanProgressStore = create<ScanProgressStore>((set) => ({
     activeScans: { ...state.activeScans, [scanId]: isActive }
   }))
 }))
+
+export type DietaryPreferences = {
+  conditions: string[]
+  allergies: string[]
+  diet_type: string
+}
+
+export const DEFAULT_PREFERENCES: DietaryPreferences = {
+  conditions: [],
+  allergies: [],
+  diet_type: 'none',
+}
+
+type DietaryStore = {
+  preferences: DietaryPreferences
+  setPreferences: (prefs: DietaryPreferences) => void
+}
+
+export const useDietaryStore = create<DietaryStore>((set) => ({
+  preferences: DEFAULT_PREFERENCES,
+  setPreferences: (preferences) => set({ preferences })
+}))

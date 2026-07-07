@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, TextInput, KeyboardAvoidingView,
-  Platform, ScrollView, useWindowDimensions
+  Platform, ScrollView, useWindowDimensions, InteractionManager
 } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing, withDelay } from 'react-native-reanimated'
 import { CameraView, useCameraPermissions } from 'expo-camera'
@@ -49,8 +49,10 @@ export default function ScannerScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const timer = setTimeout(() => activateCamera(), 300)
-      return () => { clearTimeout(timer); deactivateCamera() }
+      const task = InteractionManager.runAfterInteractions(() => {
+        activateCamera()
+      })
+      return () => { task.cancel(); deactivateCamera() }
     }, [activateCamera, deactivateCamera])
   )
 

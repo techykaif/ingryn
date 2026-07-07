@@ -38,6 +38,39 @@ type ScanData = {
   ingredient_ids: string[]
 }
 
+const ALLERGY_KEYWORDS: Record<string, string[]> = {
+  gluten: ['gluten', 'wheat', 'barley', 'rye', 'malt'],
+  dairy: ['dairy', 'milk', 'lactose', 'casein', 'whey', 'cream', 'butter'],
+  nuts: ['almond', 'cashew', 'walnut', 'pecan', 'hazelnut', 'pistachio'],
+  peanuts: ['peanut', 'groundnut', 'arachis'],
+  soy: ['soy', 'soya', 'soybean', 'tofu'],
+  eggs: ['egg', 'albumin', 'lecithin'],
+  shellfish: ['shrimp', 'crab', 'lobster', 'shellfish', 'prawn'],
+  fish: ['fish', 'anchovy', 'salmon', 'tuna', 'cod'],
+  sulphites: ['sulphite', 'sulfite', 'sulphur', 'sulfur', 'e220', 'e221', 'e222', 'e223', 'e224'],
+  sesame: ['sesame', 'tahini', 'til'],
+}
+
+const CONDITION_KEYWORDS: Record<string, string[]> = {
+  diabetes: ['sugar', 'fructose', 'glucose', 'dextrose', 'maltose', 'sucrose', 'syrup'],
+  hypertension: ['sodium', 'salt', 'monosodium', 'msg'],
+  celiac: ['gluten', 'wheat', 'barley', 'rye'],
+  kidney_disease: ['potassium', 'phosphate', 'phosphorus', 'sodium'],
+  heart_disease: ['trans fat', 'hydrogenated', 'palm oil'],
+  pregnancy: ['caffeine', 'retinol', 'aspartame', 'saccharin', 'nitrate', 'nitrite'],
+  ibs: ['sorbitol', 'mannitol', 'xylitol', 'fructose', 'lactose', 'dairy', 'wheat', 'carrageenan'],
+  liver_disease: ['alcohol', 'ethanol', 'sodium', 'trans fat', 'fructose', 'sugar'],
+}
+
+const DIET_KEYWORDS: Record<string, string[]> = {
+  vegan: ['gelatin', 'carmine', 'e120', 'lard', 'rennet', 'casein', 'whey', 'albumin', 'lactose', 'honey', 'bone broth', 'animal fat'],
+  vegetarian: ['gelatin', 'lard', 'rennet', 'carmine', 'e120', 'bone broth', 'animal fat'],
+  halal: ['alcohol', 'ethanol', 'gelatin', 'lard', 'pork', 'animal fat'],
+  kosher: ['lard', 'pork', 'shellfish', 'gelatin', 'animal fat'],
+  keto: ['sugar', 'glucose', 'fructose', 'maltodextrin', 'starch', 'dextrose'],
+  paleo: ['grain', 'wheat', 'soy', 'legume', 'lentil', 'bean', 'corn', 'oat', 'barley', 'rye', 'dextrose', 'maltodextrin', 'sugar'],
+}
+
 export default function ResultsScreen() {
   const { scanId } = useLocalSearchParams<{ scanId: string }>()
   const router = useRouter()
@@ -121,61 +154,26 @@ export default function ResultsScreen() {
     preferences.allergies.length > 0 ||
     preferences.diet_type !== 'none'
 
-  function getPersonalFlag(ingredient: Ingredient): string | null {
+  const getPersonalFlag = useCallback((ingredient: Ingredient): string | null => {
     if (!hasPreferences) return null
-    // Deliberately does not read ingredient.personal_flag: that field lives on a
-    // globally shared cache row and may reflect a different user's preferences
-    // from whenever this ingredient was first analyzed. Relevance to the current
-    // viewer is always computed fresh, below, from their own saved preferences.
 
     const haystack = [ingredient.name, ...(ingredient.aliases || []), ingredient.category]
       .join(' ').toLowerCase()
 
-    const allergyKeywords: Record<string, string[]> = {
-      gluten: ['gluten', 'wheat', 'barley', 'rye', 'malt'],
-      dairy: ['dairy', 'milk', 'lactose', 'casein', 'whey', 'cream', 'butter'],
-      nuts: ['almond', 'cashew', 'walnut', 'pecan', 'hazelnut', 'pistachio'],
-      peanuts: ['peanut', 'groundnut', 'arachis'],
-      soy: ['soy', 'soya', 'soybean', 'tofu'],
-      eggs: ['egg', 'albumin', 'lecithin'],
-      shellfish: ['shrimp', 'crab', 'lobster', 'shellfish', 'prawn'],
-      fish: ['fish', 'anchovy', 'salmon', 'tuna', 'cod'],
-      sulphites: ['sulphite', 'sulfite', 'sulphur', 'sulfur', 'e220', 'e221', 'e222', 'e223', 'e224'],
-      sesame: ['sesame', 'tahini', 'til'],
-    }
-    const conditionKeywords: Record<string, string[]> = {
-      diabetes: ['sugar', 'fructose', 'glucose', 'dextrose', 'maltose', 'sucrose', 'syrup'],
-      hypertension: ['sodium', 'salt', 'monosodium', 'msg'],
-      celiac: ['gluten', 'wheat', 'barley', 'rye'],
-      kidney_disease: ['potassium', 'phosphate', 'phosphorus', 'sodium'],
-      heart_disease: ['trans fat', 'hydrogenated', 'palm oil'],
-      pregnancy: ['caffeine', 'retinol', 'aspartame', 'saccharin', 'nitrate', 'nitrite'],
-      ibs: ['sorbitol', 'mannitol', 'xylitol', 'fructose', 'lactose', 'dairy', 'wheat', 'carrageenan'],
-      liver_disease: ['alcohol', 'ethanol', 'sodium', 'trans fat', 'fructose', 'sugar'],
-    }
-    const dietKeywords: Record<string, string[]> = {
-      vegan: ['gelatin', 'carmine', 'e120', 'lard', 'rennet', 'casein', 'whey', 'albumin', 'lactose', 'honey', 'bone broth', 'animal fat'],
-      vegetarian: ['gelatin', 'lard', 'rennet', 'carmine', 'e120', 'bone broth', 'animal fat'],
-      halal: ['alcohol', 'ethanol', 'gelatin', 'lard', 'pork', 'animal fat'],
-      kosher: ['lard', 'pork', 'shellfish', 'gelatin', 'animal fat'],
-      keto: ['sugar', 'glucose', 'fructose', 'maltodextrin', 'starch', 'dextrose'],
-      paleo: ['grain', 'wheat', 'soy', 'legume', 'lentil', 'bean', 'corn', 'oat', 'barley', 'rye', 'dextrose', 'maltodextrin', 'sugar'],
-    }
-
     for (const allergy of preferences.allergies) {
-      if ((allergyKeywords[allergy] || []).some(k => haystack.includes(k)))
+      if ((ALLERGY_KEYWORDS[allergy] || []).some(k => haystack.includes(k)))
         return `May trigger your ${allergy} allergy`
     }
     for (const condition of preferences.conditions) {
-      if ((conditionKeywords[condition] || []).some(k => haystack.includes(k)))
+      if ((CONDITION_KEYWORDS[condition] || []).some(k => haystack.includes(k)))
         return `May be relevant to your ${condition.replace('_', ' ')}`
     }
     if (preferences.diet_type !== 'none') {
-      if ((dietKeywords[preferences.diet_type] || []).some(k => haystack.includes(k)))
+      if ((DIET_KEYWORDS[preferences.diet_type] || []).some(k => haystack.includes(k)))
         return `May not be suitable for ${preferences.diet_type} diet`
     }
     return null
-  }
+  }, [hasPreferences, preferences])
 
   if (loading) {
     return (
@@ -197,8 +195,8 @@ export default function ResultsScreen() {
     )
   }
 
-  const scoreColor = getScoreColor(scan.safety_score)
-  const scoreLabel = getScoreLabel(scan.safety_score)
+  const scoreColor = isProcessing ? Colors.textTertiary : getScoreColor(scan.safety_score)
+  const scoreLabel = isProcessing ? 'Analyzing...' : getScoreLabel(scan.safety_score)
   const harmfulCount = ingredients.filter(i => i.safety_level === 'harmful').length
   const cautionCount = ingredients.filter(i => i.safety_level === 'caution').length
   const safeCount = ingredients.filter(i => i.safety_level === 'safe').length
@@ -238,7 +236,7 @@ export default function ResultsScreen() {
           <View style={[styles.scoreRing, { borderColor: `${scoreColor}40` }]}>
             <View style={[styles.scoreRingInner, { backgroundColor: `${scoreColor}12` }]}>
               {isProcessing && ingredients.length === 0 ? (
-                 <ActivityIndicator color={scoreColor} size="small" />
+               <ActivityIndicator color={scoreColor} size="small" />
               ) : (
                 <>
                   <Text style={[styles.scoreRingNum, { color: scoreColor }]}>{scan.safety_score}</Text>

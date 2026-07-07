@@ -1,23 +1,25 @@
 # INGRYN — Codebase Audit
-> Reviewed: 2026-07-07 | Auditor: Antigravity AI  
+
+> Reviewed: 2026-07-07 | Auditor: Antigravity AI
 > Build in progress: EAS Preview (Android APK)
 
 ---
 
 ## Summary
 
-| Severity | Count | Fixed |
-|---|---|---|
-| 🔴 Critical (bug / data-loss) | 4 | 2 ✅ |
-| 🟠 High (silent failure / security) | 4 | 4 ✅ |
-| 🟡 Medium (UX / correctness issue) | 8 | — |
-| 🔵 Low (code quality / polish) | 7 | — |
+| Severity                            | Count | Fixed |
+| ----------------------------------- | ----- | ----- |
+| 🔴 Critical (bug / data-loss)       | 4     | 2 ✅  |
+| 🟠 High (silent failure / security) | 4     | 4 ✅  |
+| 🟡 Medium (UX / correctness issue)  | 8     | —    |
+| 🔵 Low (code quality / polish)      | 7     | —    |
 
 ---
 
 ## 🔴 Critical Issues
 
 ### 1. ✅ `SecureStore` adapter — promise leak fixed
+
 **File:** `lib/supabase.ts` | **Status: FIXED**
 
 `setItem` and `removeItem` now return their promises directly via arrow function shorthand. Keychain errors will no longer be silently swallowed.
@@ -32,6 +34,7 @@ removeItem: (key)        => SecureStore.deleteItemAsync(key),
 ---
 
 ### 2. `fetchResults` in results screen has stale closure on `user`
+
 **File:** `app/results/[scanId].tsx` (lines 53–80)
 
 ```ts
@@ -50,6 +53,7 @@ async function fetchResults() {
 ---
 
 ### 3. Scan deletion does not confirm `raw_ocr_text` (PII) is properly cleared
+
 **File:** `app/(tabs)/history.tsx` (lines 113–133)
 
 ```ts
@@ -66,6 +70,7 @@ async function deleteScan(scanId: string) {
 ---
 
 ### 4. ✅ `saveLabel` — error handling added
+
 **File:** `app/results/[scanId].tsx` | **Status: FIXED**
 
 - Added a dedicated `labelError` state (separate from the page-level fetch error)
@@ -78,17 +83,20 @@ async function deleteScan(scanId: string) {
 ## 🟠 High Issues
 
 ### 5. ✅ Credentials — `.env` never committed to git (VERIFIED CLEAN)
+
 **File:** `.env`
 
 Confirmed via `git log --all -- .env .env.local` — the file has **zero commits** in the entire repository history. Keys have never been exposed.
 
 **Remaining recommendation (low priority):**
+
 - Ensure `.env` stays in `.gitignore` (it is).
 - For CI/CD, prefer EAS Secrets (`eas secret:create`) over relying on the local `.env` file so secrets never touch build machines directly.
 
 ---
 
 ### 6. ✅ Google Sign-In — env var guard added
+
 **File:** `lib/auth.ts` | **Status: FIXED**
 
 Now throws immediately with a clear message if either env var is missing, instead of silently falling back to placeholder strings that cause a cryptic `DEVELOPER_ERROR` at runtime.
@@ -106,6 +114,7 @@ GoogleSignin.configure({ scopes: ['email', 'profile'], webClientId, iosClientId 
 ---
 
 ### 7. ✅ OCR review step — intentional by design (CLOSED)
+
 **File:** `hooks/useScanner.ts`
 
 After OCR extracts text from the photo, the app intentionally drops the user on the **"Review ingredients"** screen before sending anything to the AI. This prevents garbled/incorrect OCR output from being analysed without the user's awareness.
@@ -115,6 +124,7 @@ The only real issue was `processText` being listed in `recognizeFromUri`'s `useC
 ---
 
 ### 8. ✅ `handleSignOut` — error handling added
+
 **File:** `app/(tabs)/settings.tsx` | **Status: FIXED**
 
 Now wrapped in `try/catch`. Local state and navigation only happen after a confirmed successful server-side sign-out. Failures are shown in the existing `deleteError` banner on the settings screen.
@@ -136,6 +146,7 @@ async function handleSignOut() {
 ---
 
 ### 9. `pageSize` defined inside component body passed to `useCallback` deps
+
 **File:** `app/(tabs)/history.tsx` (line 41, 65)
 
 ```ts
@@ -150,6 +161,7 @@ const fetchScans = useCallback(async () => { ... }, [user, pageSize])
 ---
 
 ### 10. ✅ `delete_user_account` RPC — server-side auth guard confirmed (VERIFIED CLEAN)
+
 **File:** `app/(tabs)/settings.tsx` (lines 110–112)
 
 The Postgres function is confirmed to have a proper security gate:
@@ -177,6 +189,7 @@ $$;
 ## 🟡 Medium Issues
 
 ### 11. `formatDate` returns 'Just now' for future timestamps (clock skew)
+
 **File:** `lib/scanUtils.ts` (lines 22–25)
 
 ```ts
@@ -184,13 +197,14 @@ if (diff < 0) return 'Just now'
 if (diff === 0) return 'Today'
 ```
 
-If a scan's `created_at` is even 1ms in the future (server/client clock skew), `diff < 0` fires instead of `diff === 0`. Both should show 'Today'. 
+If a scan's `created_at` is even 1ms in the future (server/client clock skew), `diff < 0` fires instead of `diff === 0`. Both should show 'Today'.
 
 **Fix:** Change to `if (diff <= 0) return 'Today'` and remove the `diff < 0` branch.
 
 ---
 
 ### 12. Null safety score shows a green `CheckCircle` icon — false safe signal
+
 **Files:** `app/(tabs)/home.tsx` (lines 291–294), `app/(tabs)/history.tsx` (lines 163–167)
 
 When `safety_score` is `null`, `getScoreLabel` returns `'N/A'`. Neither `isHarmful` nor `isCaution` is true, so the `else` fallback renders a green `CheckCircle` icon — falsely implying the product is safe.
@@ -200,6 +214,7 @@ When `safety_score` is `null`, `getScoreLabel` returns `'N/A'`. Neither `isHarmf
 ---
 
 ### 13. `home.tsx` fetches full `ingredient_ids` array just to `.length` it
+
 **File:** `app/(tabs)/home.tsx` (lines 49–52, 76)
 
 ```ts
@@ -215,6 +230,7 @@ This fetches potentially hundreds of UUIDs per scan row just to count them. For 
 ---
 
 ### 14. History search is client-side only — misses results on unloaded pages
+
 **File:** `app/(tabs)/history.tsx` (lines 97–102)
 
 Search only filters the currently loaded `scans` array. A user with 50+ scans who searches for an old label won't find it unless they scroll to load that page first.
@@ -224,6 +240,7 @@ Search only filters the currently loaded `scans` array. A user with 50+ scans wh
 ---
 
 ### 15. Deep-link destination is lost after sign-in flow
+
 **File:** `app/_layout.tsx` (lines 75–85)
 
 A signed-out user who deep-links to `/results/some-id` gets redirected to `/(auth)/welcome`. After signing in, `AuthGate` sends them to `/(tabs)/home` — the original deep-link destination is lost.
@@ -233,6 +250,7 @@ This is expected behaviour for many apps, but worth documenting. Consider storin
 ---
 
 ### 16. `DietaryPreferencesModal` Save button accessible while preferences are still loading
+
 **File:** `components/DietaryPreferencesModal.tsx` (lines 199–216)
 
 The ScrollView with preference chips shows an `ActivityIndicator` while loading, but the Save button is rendered outside the conditional and is always tappable. If pressed before `loading` resolves, saving the `DEFAULT` empty preferences would overwrite any existing saved data.
@@ -242,6 +260,7 @@ The ScrollView with preference chips shows an `ActivityIndicator` while loading,
 ---
 
 ### 17. Status bar safe area uses hardcoded values — incorrect on Dynamic Island devices
+
 **Files:** `app/(tabs)/home.tsx`, `history.tsx`, `settings.tsx`, `scanner.tsx`, `results/[scanId].tsx`, `ingredient/[ingredientId].tsx`
 
 ```ts
@@ -255,6 +274,7 @@ On iPhone 14 Pro / 15 / 16 (Dynamic Island), the safe area inset is larger than 
 ---
 
 ### 18. `reset-password.tsx` not reviewed — potential session race condition
+
 **File:** `app/reset-password.tsx`
 
 This screen handles incoming deep links from Supabase password reset emails. If a user who is already signed in on the device opens a reset link, and the reset flow creates a new session, the `onAuthStateChange` listener could fire a new `setUser()` call mid-navigation, potentially causing a race condition with any pending route guard logic.
@@ -266,7 +286,9 @@ This screen handles incoming deep links from Supabase password reset emails. If 
 ## 🔵 Low / Code Quality Issues
 
 ### 19. Empty component directories in repo
+
 The following directories exist but are completely empty:
+
 - `components/scanner/`
 - `components/results/`
 - `components/history/`
@@ -277,6 +299,7 @@ Remove them or add placeholder files to reduce confusion.
 ---
 
 ### 20. Stale comment in `useIngredientAnalysis.ts`
+
 **File:** `hooks/useIngredientAnalysis.ts` (line 2)
 
 ```ts
@@ -288,6 +311,7 @@ Cleanup comment left behind. Remove it.
 ---
 
 ### 21. `scoreLabel` computed inline duplicates `getScoreLabel` utility
+
 **File:** `app/results/[scanId].tsx` (line 176)
 
 ```ts
@@ -299,6 +323,7 @@ This exactly duplicates `getScoreLabel()` from `lib/scanUtils.ts`. Use the utili
 ---
 
 ### 22. `@gorhom/bottom-sheet` imported as a dependency but not visibly used
+
 **File:** `package.json` (line 7)
 
 `@gorhom/bottom-sheet` is listed as a dependency but no import of it was found in any screen or component. Either it is used indirectly (e.g. a planned feature) or it is dead weight. Remove if unused to reduce bundle size.
@@ -306,6 +331,7 @@ This exactly duplicates `getScoreLabel()` from `lib/scanUtils.ts`. Use the utili
 ---
 
 ### 23. `eas.json` CLI version constraint is too loose
+
 **File:** `eas.json` (line 3)
 
 ```json
@@ -319,6 +345,7 @@ The installed CLI is v20.5.1. A loose `>= 16` constraint won't protect CI from b
 ---
 
 ### 24. `app.json` has `newArchEnabled: false` — React Native New Architecture disabled
+
 **File:** `app.json` (line 10)
 
 React Native 0.85 ships with the New Architecture stable. `react-native-reanimated 4.x` and `react-native-gesture-handler 2.31` already work best (or exclusively) with the New Architecture enabled.
@@ -328,6 +355,7 @@ React Native 0.85 ships with the New Architecture stable. `react-native-reanimat
 ---
 
 ### 25. Google button uses plain text "G" instead of the official Google logo
+
 **Files:** `app/(auth)/signin.tsx` (line 355), `app/(auth)/signup.tsx` (line 279)
 
 ```ts
@@ -340,20 +368,20 @@ Google's brand guidelines require using the official SVG logo on sign-in buttons
 
 ---
 
-| # | Issue | Effort | Status |
-|---|---|---|---|
-| 1 | SecureStore promise leak | 2 lines | ✅ Fixed |
-| 4 | `saveLabel` error swallowed | 5 lines | ✅ Fixed |
-| 6 | Google OAuth fallback strings | 10 lines | ✅ Fixed |
-| 8 | `handleSignOut` no error handling | 10 lines | ✅ Fixed |
-| 5 | `.env` secrets | — | ✅ Verified clean |
-| 10 | `delete_user_account` RPC auth | — | ✅ Verified clean |
-| 2 | Stale closure in `fetchResults` | 15 lines | ✅ Fixed |
-| 7 | OCR auto-submit regression | dep cleaned up | ✅ By design |
-| 17 | SafeArea insets hardcoded | Medium | ✅ Fixed |
-| 14 | Client-side-only search | Medium | 🟡 Open |
-| 12 | Null score shows wrong icon | 5 lines | ✅ Fixed |
-| 16 | Save button active during loading | 1 line | ✅ Fixed |
-| 22 | `scoreLabel` duplicates utility | 1 line | ✅ Fixed |
-| 20 | Stale comment | 1 line | ✅ Fixed |
-| 19 | Empty directories | Trivial | ✅ Fixed |
+| #  | Issue                               | Effort         | Status            |
+| -- | ----------------------------------- | -------------- | ----------------- |
+| 1  | SecureStore promise leak            | 2 lines        | ✅ Fixed          |
+| 4  | `saveLabel` error swallowed       | 5 lines        | ✅ Fixed          |
+| 6  | Google OAuth fallback strings       | 10 lines       | ✅ Fixed          |
+| 8  | `handleSignOut` no error handling | 10 lines       | ✅ Fixed          |
+| 5  | `.env` secrets                    | —             | ✅ Verified clean |
+| 10 | `delete_user_account` RPC auth    | —             | ✅ Verified clean |
+| 2  | Stale closure in`fetchResults`    | 15 lines       | ✅ Fixed          |
+| 7  | OCR auto-submit regression          | dep cleaned up | ✅ By design      |
+| 17 | SafeArea insets hardcoded           | Medium         | ✅ Fixed          |
+| 14 | Client-side-only search             | Medium         | 🟡 Open           |
+| 12 | Null score shows wrong icon         | 5 lines        | ✅ Fixed          |
+| 16 | Save button active during loading   | 1 line         | ✅ Fixed          |
+| 22 | `scoreLabel` duplicates utility   | 1 line         | ✅ Fixed          |
+| 20 | Stale comment                       | 1 line         | ✅ Fixed          |
+| 19 | Empty directories                   | Trivial        | ✅ Fixed          |

@@ -104,7 +104,7 @@ export function DietaryPreferencesModal({ visible, onClose }: Props) {
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { maxHeight: windowHeight * 0.92 }]}>
           <View style={styles.handle} />

@@ -1,22 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/store'
+import { useAuthStore, useDietaryStore, DietaryPreferences } from '@/store'
 
-export type DietaryPreferences = {
-  conditions: string[]
-  allergies: string[]
-  diet_type: string
-}
-
-const DEFAULT: DietaryPreferences = {
-  conditions: [],
-  allergies: [],
-  diet_type: 'none',
-}
+export type { DietaryPreferences }
 
 export function useDietaryPreferences() {
   const { user } = useAuthStore()
-  const [preferences, setPreferences] = useState<DietaryPreferences>(DEFAULT)
+  const { preferences, setPreferences } = useDietaryStore()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -66,7 +56,7 @@ export function useDietaryPreferences() {
         )
 
       if (error) throw error
-      setPreferences(prefs)
+      setPreferences(prefs) // Updates global state
       return true
     } catch (e: any) {
       console.error('savePreferences error:', e)
