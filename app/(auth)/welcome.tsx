@@ -122,7 +122,10 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
 
           <Text style={styles.legal}>
-            By continuing you agree to our Terms of Service and Privacy Policy
+            By continuing you agree to our{' '}
+            <Text style={styles.legalLink} onPress={() => router.push('/legal/terms')}>Terms of Service</Text>
+            {' '}and{' '}
+            <Text style={styles.legalLink} onPress={() => router.push('/legal/privacy')}>Privacy Policy</Text>
           </Text>
         </View>
       </SafeAreaView>
@@ -316,5 +319,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 17,
     paddingHorizontal: Spacing.xl,
+  },
+  legalLink: {
+    fontFamily: Fonts.semibold,
+    color: Colors.primary,
   },
 })

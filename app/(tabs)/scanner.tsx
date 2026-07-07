@@ -42,6 +42,7 @@ export default function ScannerScreen() {
     handleCapture,
     handleGalleryPick,
     handleManualSubmit,
+    cancelProcessing,
   } = useScanner(user?.id || '', (scanId) => router.push(`/results/${scanId}`))
 
   useFocusEffect(
@@ -52,7 +53,7 @@ export default function ScannerScreen() {
   )
 
   if (step === 'processing') {
-    return <ProcessingScreen tip={processingTips[processingTip]} tipIndex={processingTip} total={processingTips.length} />
+    return <ProcessingScreen tip={processingTips[processingTip]} tipIndex={processingTip} total={processingTips.length} onCancel={cancelProcessing} />
   }
 
   if (step === 'manual') {
@@ -98,7 +99,7 @@ export default function ScannerScreen() {
 }
 
 // ─── Processing ───────────────────────────────────────────────────────────────
-function ProcessingScreen({ tip, tipIndex, total }: { tip: string; tipIndex: number; total: number }) {
+function ProcessingScreen({ tip, tipIndex, total, onCancel }: { tip: string; tipIndex: number; total: number; onCancel: () => void }) {
   return (
     <View style={styles.processingContainer}>
       <StatusBar style="dark" />
@@ -115,6 +116,9 @@ function ProcessingScreen({ tip, tipIndex, total }: { tip: string; tipIndex: num
           <View key={i} style={[styles.dot, { backgroundColor: i === tipIndex ? Colors.primary : Colors.border, width: i === tipIndex ? 20 : 6 }]} />
         ))}
       </View>
+      <TouchableOpacity style={styles.cancelProcessingBtn} onPress={onCancel}>
+        <Text style={styles.cancelProcessingText}>Cancel</Text>
+      </TouchableOpacity>
     </View>
   )
 }
@@ -327,8 +331,10 @@ const styles = StyleSheet.create({
   processingTitle: { fontFamily: Fonts.extrabold, fontSize: FontSizes['4xl'], color: Colors.textPrimary },
   processingSubtitle: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary, marginTop: -Spacing.sm },
   processingTip: { fontFamily: Fonts.medium, fontSize: FontSizes.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 24, marginTop: Spacing.md },
-  processingDots: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md },
+  processingDots: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md, marginBottom: Spacing['2xl'] },
   dot: { height: 6, borderRadius: 3 },
+  cancelProcessingBtn: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
+  cancelProcessingText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.danger },
 
   permissionContainer: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing['3xl'], gap: Spacing.lg },
   permissionBlob: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: `${Colors.primary}10`, top: -100, right: -80 },

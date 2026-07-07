@@ -28,7 +28,7 @@ export function useDietaryPreferences() {
     try {
       const { data } = await supabase
         .from('dietary_preferences')
-        .select('*')
+        .select('conditions, allergies, diet_type')
         .eq('user_id', user?.id)
         .maybeSingle()
 

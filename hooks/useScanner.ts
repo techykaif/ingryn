@@ -77,6 +77,10 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
   }, [clearProcessingTimeout, stopTipCycle])
 
   const processText = useCallback(async (text: string) => {
+    if (!userId) {
+      setScanError({ message: 'Must be logged in to scan.', allowManual: true })
+      return
+    }
     setScanError(null)
     setStep('processing')
     startTipCycle()
@@ -198,6 +202,14 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
 
   const clearError = useCallback(() => setScanError(null), [])
 
+  const cancelProcessing = useCallback(() => {
+    stopTipCycle()
+    clearProcessingTimeout()
+    requestIdRef.current += 1 // Invalidate current request
+    setScanError(null)
+    setStep(IS_WEB ? 'manual' : 'camera')
+  }, [stopTipCycle, clearProcessingTimeout])
+
   return {
     step, setStep,
     flash, setFlash,
@@ -213,5 +225,6 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     handleCapture,
     handleGalleryPick,
     handleManualSubmit,
+    cancelProcessing,
   }
 }

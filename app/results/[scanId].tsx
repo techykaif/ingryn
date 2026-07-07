@@ -7,8 +7,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '@/lib/supabase'
+import { useAuthStore } from '@/store'
 import { useDietaryPreferences } from '@/hooks/useDietaryPreferences'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
+import { getScoreColor, getSafetyColor, getSafetyLabel, formatDate } from '@/lib/scanUtils'
 import {
   ArrowLeft, PencilSimple, Warning, CheckCircle,
   ShieldWarning, Globe, User, ArrowRight, X
@@ -38,6 +40,7 @@ export default function ResultsScreen() {
   const { scanId } = useLocalSearchParams<{ scanId: string }>()
   const router = useRouter()
   const { preferences } = useDietaryPreferences()
+  const { user } = useAuthStore()
 
   const [scan, setScan] = useState<ScanData | null>(null)
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
@@ -52,14 +55,14 @@ export default function ResultsScreen() {
   async function fetchResults() {
     try {
       const { data: scanData, error: scanError } = await supabase
-        .from('scans').select('*').eq('id', scanId).single()
+        .from('scans').select('id, label, safety_score, created_at, raw_ocr_text, ingredient_ids').eq('id', scanId).single()
       if (scanError) throw scanError
       setScan(scanData)
       setLabelText(scanData.label || '')
 
       if (scanData.ingredient_ids?.length > 0) {
         const { data: ingredientData, error } = await supabase
-          .from('ingredients').select('*').in('id', scanData.ingredient_ids)
+          .from('ingredients').select('id, name, aliases, category, description, safety_level, health_concerns, country_status').in('id', scanData.ingredient_ids)
         if (error) throw error
         const order = { harmful: 0, caution: 1, unknown: 2, safe: 3 }
         const sorted = (ingredientData || []).sort((a, b) =>
@@ -76,10 +79,10 @@ export default function ResultsScreen() {
   }
 
   async function saveLabel() {
-    if (!labelText.trim()) return
+    if (!labelText.trim() || !user?.id) return
     setSaving(true)
     const { error } = await supabase
-      .from('scans').update({ label: labelText.trim() }).eq('id', scanId)
+      .from('scans').update({ label: labelText.trim() }).eq('id', scanId).eq('user_id', user?.id)
     setSaving(false)
     if (!error) {
       setScan(prev => prev ? { ...prev, label: labelText.trim() } : prev)
@@ -121,6 +124,8 @@ export default function ResultsScreen() {
       kidney_disease: ['potassium', 'phosphate', 'phosphorus', 'sodium'],
       heart_disease: ['trans fat', 'hydrogenated', 'palm oil'],
       pregnancy: ['caffeine', 'retinol', 'aspartame', 'saccharin', 'nitrate', 'nitrite'],
+      ibs: ['sorbitol', 'mannitol', 'xylitol', 'fructose', 'lactose', 'dairy', 'wheat', 'carrageenan'],
+      liver_disease: ['alcohol', 'ethanol', 'sodium', 'trans fat', 'fructose', 'sugar'],
     }
     const dietKeywords: Record<string, string[]> = {
       vegan: ['gelatin', 'carmine', 'e120', 'lard', 'rennet', 'casein', 'whey', 'albumin', 'lactose', 'honey', 'bone broth', 'animal fat'],
@@ -145,11 +150,6 @@ export default function ResultsScreen() {
     }
     return null
   }
-
-  const getScoreColor = (s: number) => s >= 75 ? Colors.safe : s >= 45 ? Colors.caution : Colors.harmful
-  const getSafetyColor = (l: string) => ({ safe: Colors.safe, caution: Colors.caution, harmful: Colors.harmful, unknown: Colors.unknown }[l] || Colors.unknown)
-  const getSafetyLabel = (l: string) => ({ safe: 'Safe', caution: 'Caution', harmful: 'Harmful', unknown: 'Unknown' }[l] || 'Unknown')
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   if (loading) {
     return (
@@ -203,7 +203,7 @@ export default function ResultsScreen() {
           <View style={styles.scoreLeft}>
             <Text style={styles.scoreTitle}>Safety score</Text>
             <Text style={[styles.scoreNumber, { color: scoreColor }]}>{scan.safety_score}</Text>
-            <Text style={styles.scoreDate}>{formatDate(scan.created_at)}</Text>
+            <Text style={styles.scoreDate}>{formatDate(scan.created_at, true)}</Text>
           </View>
           <View style={[styles.scoreRing, { borderColor: `${scoreColor}40` }]}>
             <View style={[styles.scoreRingInner, { backgroundColor: `${scoreColor}12` }]}>
@@ -321,7 +321,7 @@ export default function ResultsScreen() {
       </ScrollView>
 
       {/* Label modal */}
-      <Modal visible={labelModal} transparent animationType="slide">
+      <Modal visible={labelModal} transparent animationType="slide" onRequestClose={() => setLabelModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, Shadows.lg]}>
             <View style={styles.modalHandle} />

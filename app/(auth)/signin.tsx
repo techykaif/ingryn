@@ -187,6 +187,7 @@ export default function SignInScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
+                    autoComplete="email"
                   />
                 </View>
               </View>
@@ -256,6 +257,7 @@ export default function SignInScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="email"
               />
             </View>
           </View>
@@ -278,6 +280,7 @@ export default function SignInScreen() {
                 onChangeText={t => { setPassword(t); setErrorMsg('') }}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                autoComplete="password"
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 {showPassword

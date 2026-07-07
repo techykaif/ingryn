@@ -9,6 +9,7 @@ import {
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, ShieldCheck, FileText, CheckCircle } from 'phosphor-react-native'
 import { Colors, Fonts, FontSizes, Radius, Shadows, Spacing } from '@/constants/theme'
 
@@ -78,6 +79,7 @@ type LegalType = keyof typeof LEGAL_CONTENT
 export default function LegalScreen() {
   const router = useRouter()
   const params = useLocalSearchParams<{ type?: string }>()
+  const insets = useSafeAreaInsets()
 
   const type = (params.type as LegalType | undefined) ?? 'privacy'
   const content = useMemo(() => {
@@ -90,7 +92,7 @@ export default function LegalScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? insets.top + 12 : 24 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -139,7 +141,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 56 : 36,
     paddingHorizontal: Spacing['2xl'],
     paddingBottom: Spacing.xl,
     backgroundColor: Colors.surface,

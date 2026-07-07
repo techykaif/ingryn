@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
    View, Text, StyleSheet, TouchableOpacity,
   Modal, ScrollView, ActivityIndicator, useWindowDimensions
@@ -56,6 +56,13 @@ export function DietaryPreferencesModal({ visible, onClose }: Props) {
     diet_type: 'none',
   })
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (visible) { setLocal(preferences); setSaveStatus('idle') }
@@ -90,7 +97,7 @@ export function DietaryPreferencesModal({ visible, onClose }: Props) {
     const success = await savePreferences(local)
     if (success) {
       setSaveStatus('success')
-      setTimeout(() => { setSaveStatus('idle'); onClose() }, 1200)
+      timeoutRef.current = setTimeout(() => { setSaveStatus('idle'); onClose() }, 1200)
     } else {
       setSaveStatus('error')
     }

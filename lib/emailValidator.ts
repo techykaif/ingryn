@@ -165,36 +165,6 @@ const BLOCKED_DOMAINS = new Set([
   'zmail.ru',
 ])
 
-// Legitimate free email providers that are allowed
-const ALLOWED_FREE_PROVIDERS = new Set([
-  'gmail.com', 'googlemail.com',
-  'yahoo.com', 'yahoo.co.uk', 'yahoo.co.in', 'yahoo.fr', 'yahoo.de',
-  'yahoo.es', 'yahoo.it', 'yahoo.ca', 'yahoo.com.au', 'yahoo.co.jp',
-  'outlook.com', 'outlook.in', 'hotmail.com', 'hotmail.co.uk',
-  'hotmail.fr', 'hotmail.de', 'hotmail.es', 'hotmail.it',
-  'live.com', 'live.co.uk', 'live.in', 'live.fr', 'live.de',
-  'msn.com', 'passport.com',
-  'icloud.com', 'me.com', 'mac.com',
-  'proton.me', 'protonmail.com', 'protonmail.ch',
-  'tutanota.com', 'tutanota.de', 'tutamail.com', 'tuta.io',
-  'zoho.com', 'zohomail.com', 'zohomail.in',
-  'aol.com', 'aim.com',
-  'mail.com', 'email.com', 'usa.com', 'post.com',
-  'fastmail.com', 'fastmail.fm',
-  'hushmail.com',
-  'gmx.com', 'gmx.de', 'gmx.net', 'gmx.us', 'gmx.fr',
-  'web.de',
-  'yandex.com', 'yandex.ru', 'yandex.ua',
-  'rediffmail.com',
-  'inbox.com',
-  'mail.ru', 'bk.ru', 'list.ru', 'internet.ru',
-  'rocketmail.com',
-  'mailfence.com',
-  'disroot.org',
-  'startmail.com',
-  'pm.me',
-])
-
 export type EmailValidationResult =
   | { valid: true }
   | { valid: false; reason: string }
@@ -203,7 +173,7 @@ export function validateEmail(email: string): EmailValidationResult {
   const trimmed = email.trim().toLowerCase()
 
   // Basic format check
-  const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
+  const emailRegex = /^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/
   if (!emailRegex.test(trimmed)) {
     return { valid: false, reason: 'Please enter a valid email address.' }
   }
@@ -234,7 +204,7 @@ export function validateEmail(email: string): EmailValidationResult {
   // Check for subdomain variants of blocked domains
   // e.g. user@sub.mailinator.com should also be blocked
   const domainParts = domain.split('.')
-  for (let i = 0; i < domainParts.length - 1; i++) {
+  for (let i = 1; i < domainParts.length - 1; i++) {
     const parentDomain = domainParts.slice(i).join('.')
     if (BLOCKED_DOMAINS.has(parentDomain)) {
       return { valid: false, reason: 'Temporary or disposable email addresses are not allowed.' }

@@ -79,17 +79,18 @@ export default function IngredientDetailScreen() {
   const router = useRouter()
   const [ingredient, setIngredient] = useState<Ingredient | null>(null)
   const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => { fetchIngredient() }, [ingredientId])
 
   async function fetchIngredient() {
     try {
       const { data, error } = await supabase
-        .from('ingredients').select('*').eq('id', ingredientId).single()
+        .from('ingredients').select('id, name, aliases, category, description, safety_level, health_concerns, country_status').eq('id', ingredientId).single()
       if (error) throw error
       setIngredient(data)
     } catch (e: any) {
-      router.back()
+      setErrorMsg(e.message || 'Could not load ingredient details.')
     } finally {
       setLoading(false)
     }
@@ -103,7 +104,18 @@ export default function IngredientDetailScreen() {
     )
   }
 
-  if (!ingredient) return null
+  if (errorMsg || !ingredient) {
+    return (
+      <View style={[styles.centered, { gap: 16 }]}>
+        <StatusBar style="dark" />
+        <Warning size={40} color={Colors.danger} weight="fill" />
+        <Text style={styles.errorText}>{errorMsg || 'Ingredient not found'}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.errorBtn}>
+          <Text style={styles.errorBtnText}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
 
   const safety = SAFETY_CONFIG[ingredient.safety_level] || SAFETY_CONFIG.unknown
   const SafetyIcon = safety.icon
@@ -269,6 +281,9 @@ export default function IngredientDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   centered: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' },
+  errorText: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.danger, textAlign: 'center', paddingHorizontal: 32 },
+  errorBtn: { backgroundColor: Colors.primaryLight, borderRadius: Radius.xl, paddingHorizontal: 24, paddingVertical: 12, marginTop: Spacing.md },
+  errorBtnText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.primary },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 80 },
 

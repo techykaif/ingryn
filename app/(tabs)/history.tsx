@@ -15,6 +15,7 @@ import {
   ArrowRight, Warning, CheckCircle, ShieldWarning,
   Scan as ScanIcon, X
 } from 'phosphor-react-native'
+import { getScoreColor, getScoreLabel, formatDate } from '@/lib/scanUtils'
 
 type ScanItem = {
   id: string
@@ -46,7 +47,7 @@ export default function HistoryScreen() {
       if (!user?.id) return
       const { data, error } = await supabase
         .from('scans')
-        .select('*')
+        .select('id, label, safety_score, created_at, ingredient_ids')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
         .range(0, pageSize - 1)
@@ -72,7 +73,7 @@ export default function HistoryScreen() {
       const to = from + pageSize - 1
       const { data, error } = await supabase
         .from('scans')
-        .select('*')
+        .select('id, label, safety_score, created_at, ingredient_ids')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
         .range(from, to)
@@ -81,7 +82,7 @@ export default function HistoryScreen() {
       const newRows = data || []
       const combined = [...scans, ...newRows]
       setScans(combined)
-      setFiltered(combined)
+      setFiltered(searchQuery ? combined.filter(s => (s.label || '').toLowerCase().includes(searchQuery.toLowerCase())) : combined)
       setPage(nextPage)
       setHasMore(newRows.length === pageSize)
     } catch (e: any) {
@@ -130,30 +131,6 @@ export default function HistoryScreen() {
     } finally {
       setDeleting(null)
     }
-  }
-
-  const getScoreColor = (score: number | null) => {
-    if (score === null) return Colors.unknown
-    if (score >= 75) return Colors.safe
-    if (score >= 45) return Colors.caution
-    return Colors.harmful
-  }
-
-  const getScoreLabel = (score: number | null) => {
-    if (score === null) return 'N/A'
-    if (score >= 75) return 'Safe'
-    if (score >= 45) return 'Caution'
-    return 'Harmful'
-  }
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-    if (diff === 0) return 'Today'
-    if (diff === 1) return 'Yesterday'
-    if (diff < 7) return `${diff} days ago`
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   const renderItem = ({ item }: { item: ScanItem }) => {

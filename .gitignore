@@ -45,5 +45,5 @@ yarn-error.*
 /android
 .claude/
 structure.txt
-audit.md
+
 google-services-key.json

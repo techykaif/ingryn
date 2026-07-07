@@ -10,9 +10,10 @@ import { useAuthStore } from '@/store'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
   Scan as ScanIcon, Clock, ChartBar,
-  ArrowRight, Warning, CheckCircle, ShieldWarning,
-  User, Sparkle
+  ArrowRight, Warning, Bell, Plus, List, SealCheck, ClockCounterClockwise,
+  CheckCircle, Sparkle, ShieldWarning
 } from 'phosphor-react-native'
+import { getScoreColor, getScoreLabel, formatDate } from '@/lib/scanUtils'
 import { LinearGradient } from 'expo-linear-gradient'
 
 type ScanRecord = {
@@ -31,6 +32,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [totalScans, setTotalScans] = useState(0)
+  const [harmfulCount, setHarmfulCount] = useState(0)
+  const [safeCount, setSafeCount] = useState(0)
 
   const fetchData = useCallback(async () => {
     try {
@@ -38,7 +41,7 @@ export default function HomeScreen() {
       const fullName = user?.user_metadata?.full_name || user?.email || ''
       setFirstName(fullName.split(' ')[0] || 'there')
 
-      const [{ data, error }, { count }] = await Promise.all([
+      const [{ data, error }, { count }, { count: harmful }, { count: safe }] = await Promise.all([
         supabase
           .from('scans')
           .select('id, label, safety_score, created_at, ingredient_ids')
@@ -49,6 +52,16 @@ export default function HomeScreen() {
           .from('scans')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id),
+        supabase
+          .from('scans')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .lt('safety_score', 45),
+        supabase
+          .from('scans')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('safety_score', 75),
       ])
 
       if (error) throw error
@@ -63,6 +76,8 @@ export default function HomeScreen() {
 
       setScans(mapped)
       setTotalScans(count || 0)
+      setHarmfulCount(harmful || 0)
+      setSafeCount(safe || 0)
     } catch (e) {
       console.error('Home fetch error:', e)
     } finally {
@@ -73,39 +88,12 @@ export default function HomeScreen() {
 
   useFocusEffect(useCallback(() => { fetchData() }, [fetchData]))
 
-  const getScoreColor = (score: number | null) => {
-    if (score === null) return Colors.unknown
-    if (score >= 75) return Colors.safe
-    if (score >= 45) return Colors.caution
-    return Colors.harmful
-  }
-
-  const getScoreLabel = (score: number | null) => {
-    if (score === null) return 'N/A'
-    if (score >= 75) return 'Safe'
-    if (score >= 45) return 'Caution'
-    return 'Harmful'
-  }
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-    if (diff === 0) return 'Today'
-    if (diff === 1) return 'Yesterday'
-    if (diff < 7) return `${diff} days ago`
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
-
   const getGreeting = () => {
     const h = new Date().getHours()
     if (h < 12) return 'Good morning'
     if (h < 17) return 'Good afternoon'
     return 'Good evening'
   }
-
-  const harmfulCount = scans.filter(s => s.safety_score !== null && s.safety_score < 45).length
-  const safeCount = scans.filter(s => s.safety_score !== null && s.safety_score >= 75).length
 
   if (loading) {
     return (

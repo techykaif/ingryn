@@ -30,7 +30,19 @@ function getSignUpErrorMessage(error: { message: string; status?: number }): str
 }
 
 function PasswordStrength({ password }: { password: string }) {
-  const strength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : 3
+  const hasUpper = /[A-Z]/.test(password)
+  const hasLower = /[a-z]/.test(password)
+  const hasNumber = /\d/.test(password)
+  const hasSpecial = /[^a-zA-Z0-9]/.test(password)
+  const varietyScore = [hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
+  
+  let strength = 0
+  if (password.length > 0) {
+    if (password.length < 6) strength = 1
+    else if (password.length >= 10 && varietyScore >= 3) strength = 3
+    else if (varietyScore >= 2 && password.length >= 6) strength = 2
+    else strength = 1
+  }
   const config = [
     { color: Colors.border, label: '' },
     { color: Colors.danger, label: 'Weak' },
@@ -145,6 +157,7 @@ export default function SignUpScreen() {
                 onChangeText={t => { setFullName(t); setErrorMsg('') }}
                 autoCapitalize="words"
                 autoCorrect={false}
+                autoComplete="name"
               />
             </View>
           </View>
@@ -163,6 +176,7 @@ export default function SignUpScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="email"
               />
             </View>
           </View>
@@ -180,6 +194,7 @@ export default function SignUpScreen() {
                 onChangeText={t => { setPassword(t); setErrorMsg('') }}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                autoComplete="new-password"
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}

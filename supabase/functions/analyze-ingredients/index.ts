@@ -1,5 +1,6 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { createClient } from "jsr:@supabase/supabase-js@2"
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")
 const GEMINI_API_URL =
@@ -36,6 +37,21 @@ Deno.serve(async (req: Request) => {
       )
     }
 
+    const authHeader = req.headers.get("authorization")
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing authorization" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } })
+    }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    )
+
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""))
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } })
+    }
+
     const { ingredientText, preferences } = (await req.json()) as {
       ingredientText?: string
       preferences?: UserPreferences
@@ -66,16 +82,33 @@ Deno.serve(async (req: Request) => {
       .replace(/\s+/g, " ")
       .trim()
 
+    const ALLOWED_CONDITIONS = ["diabetes", "hypertension", "celiac", "kidney_disease", "heart_disease", "pregnancy", "ibs", "liver_disease"]
+    const ALLOWED_ALLERGIES = ["gluten", "dairy", "nuts", "peanuts", "soy", "eggs", "shellfish", "fish", "sulphites", "sesame"]
+    const ALLOWED_DIET_TYPES = ["none", "vegan", "vegetarian", "keto", "paleo", "halal", "kosher"]
+
+    let safeConditions: string[] = []
+    let safeAllergies: string[] = []
+    let safeDietType = "none"
+
+    if (preferences) {
+      if (Array.isArray(preferences.conditions)) {
+        safeConditions = preferences.conditions.filter(c => ALLOWED_CONDITIONS.includes(c))
+      }
+      if (Array.isArray(preferences.allergies)) {
+        safeAllergies = preferences.allergies.filter(a => ALLOWED_ALLERGIES.includes(a))
+      }
+      if (preferences.diet_type && ALLOWED_DIET_TYPES.includes(preferences.diet_type)) {
+        safeDietType = preferences.diet_type
+      }
+    }
+
     const preferencesContext =
-      preferences &&
-      (preferences.conditions?.length > 0 ||
-        preferences.allergies?.length > 0 ||
-        preferences.diet_type !== "none")
+      (safeConditions.length > 0 || safeAllergies.length > 0 || safeDietType !== "none")
         ? `
 User health context (flag ingredients relevant to these):
-- Health conditions: ${preferences.conditions?.length > 0 ? preferences.conditions.join(", ") : "none"}
-- Allergies: ${preferences.allergies?.length > 0 ? preferences.allergies.join(", ") : "none"}
-- Diet type: ${preferences.diet_type && preferences.diet_type !== "none" ? preferences.diet_type : "no specific diet"}
+- Health conditions: ${safeConditions.length > 0 ? safeConditions.join(", ") : "none"}
+- Allergies: ${safeAllergies.length > 0 ? safeAllergies.join(", ") : "none"}
+- Diet type: ${safeDietType !== "none" ? safeDietType : "no specific diet"}
 `
         : ""
 

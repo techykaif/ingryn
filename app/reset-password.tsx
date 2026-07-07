@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity,
     StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image
@@ -31,11 +31,34 @@ export default function ResetPasswordScreen() {
     const [confirmPassword, setConfirmPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState('')
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    useEffect(() => {
+        let cancelled = false
+
+        return () => {
+            cancelled = true
+            if (timeoutRef.current) clearTimeout(timeoutRef.current)
+        }
+    }, [])
 
     useEffect(() => {
         let cancelled = false
 
         async function tryEstablishSession(url: string | null) {
+            if (!url) return false
+            const raw = url.includes('#') ? url.split('#')[1] : url.split('?')[1]
+            if (!raw) return false
+            const params = new URLSearchParams(raw)
+            
+            const code = params.get('code')
+            if (code) {
+                const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+                if (cancelled) return true
+                setState(sessionError ? 'invalid' : 'ready')
+                return true
+            }
+
             const tokens = parseTokensFromUrl(url)
             if (!tokens) return false
 
@@ -93,7 +116,7 @@ export default function ResetPasswordScreen() {
         }
 
         setState('success')
-        setTimeout(() => router.replace('/(tabs)/home'), 1500)
+        timeoutRef.current = setTimeout(() => router.replace('/(tabs)/home'), 1500)
     }
 
     if (state === 'verifying') {
@@ -155,6 +178,7 @@ export default function ResetPasswordScreen() {
                         placeholder="New password"
                         placeholderTextColor={Colors.textTertiary}
                         secureTextEntry={!showPassword}
+                        autoComplete="new-password"
                     />
                     <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                         {showPassword
@@ -172,6 +196,7 @@ export default function ResetPasswordScreen() {
                         placeholder="Confirm new password"
                         placeholderTextColor={Colors.textTertiary}
                         secureTextEntry={!showPassword}
+                        autoComplete="new-password"
                     />
                 </View>
 

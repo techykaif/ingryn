@@ -104,6 +104,7 @@ export default function SettingsScreen() {
   }
 
   async function deleteAccount() {
+    if (!user?.id) return
     setDeleting(true)
     try {
       const { error } = await supabase.rpc('delete_user_account', {
