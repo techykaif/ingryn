@@ -5,6 +5,7 @@ import {
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -77,6 +78,7 @@ const SAFETY_CONFIG: Record<string, {
 export default function IngredientDetailScreen() {
   const { ingredientId } = useLocalSearchParams<{ ingredientId: string }>()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const [ingredient, setIngredient] = useState<Ingredient | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
@@ -129,7 +131,7 @@ export default function IngredientDetailScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, Shadows.sm]}>
             <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
           </TouchableOpacity>
@@ -289,7 +291,7 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl,
+    paddingTop: 0, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl,
   },
   backBtn: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
   categoryChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: Radius.full },

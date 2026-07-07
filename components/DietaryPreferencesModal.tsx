@@ -197,9 +197,9 @@ export function DietaryPreferencesModal({ visible, onClose }: Props) {
           )}
 
           <TouchableOpacity
-            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+            style={[styles.saveBtn, (saving || loading) && { opacity: 0.6 }]}
             onPress={handleSave}
-            disabled={saving}
+            disabled={saving || loading}
             activeOpacity={0.85}
           >
             <LinearGradient

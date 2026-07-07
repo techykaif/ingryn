@@ -5,10 +5,20 @@ import { Platform } from 'react-native'
 
 // Configure Google Sign-In with env variables (only on native, as web requires sponsor package)
 if (Platform.OS !== 'web') {
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+
+  if (!webClientId || !iosClientId) {
+    throw new Error(
+      'Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID or EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID. ' +
+      'Check your .env file or EAS Secrets.'
+    )
+  }
+
   GoogleSignin.configure({
     scopes: ['email', 'profile'],
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'your-web-client-id.apps.googleusercontent.com',
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || 'your-ios-client-id.apps.googleusercontent.com',
+    webClientId,
+    iosClientId,
   })
 }
 

@@ -20,8 +20,7 @@ export const formatDate = (dateStr: string, includeYear = false) => {
   const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
   
   if (!includeYear) {
-    if (diff < 0) return 'Just now'
-    if (diff === 0) return 'Today'
+    if (diff <= 0) return 'Today'
     if (diff === 1) return 'Yesterday'
     if (diff < 7) return `${diff} days ago`
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })

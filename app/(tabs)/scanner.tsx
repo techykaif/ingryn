@@ -9,6 +9,7 @@ import { useRouter, useFocusEffect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuthStore } from '@/store'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useScanner, IS_WEB } from '@/hooks/useScanner'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
@@ -158,10 +159,11 @@ function ManualScreen({
   value: string; onChange: (t: string) => void; onSubmit: () => void
   onBack: () => void; error?: string; clearError: () => void
 }) {
+  const insets = useSafeAreaInsets()
   return (
     <KeyboardAvoidingView style={styles.manualContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="dark" />
-      <View style={styles.manualHeader}>
+      <View style={[styles.manualHeader, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={onBack} style={[styles.backBtn, Shadows.sm]}>
           <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
         </TouchableOpacity>
@@ -229,6 +231,7 @@ function CameraScreen({
   error?: string; allowManual?: boolean; clearError: () => void
   frameW: number; frameH: number
 }) {
+  const insets = useSafeAreaInsets()
   return (
     <View style={styles.cameraContainer}>
       <StatusBar style="light" hidden />
@@ -244,7 +247,7 @@ function CameraScreen({
       )}
 
       {/* Top bar */}
-      <View style={styles.topFade}>
+      <View style={[styles.topFade, { paddingTop: insets.top || 24 }]}>
         <View style={styles.topBar}>
           <Text style={styles.topBarBrand}>INGRYN</Text>
           <TouchableOpacity style={[styles.flashBtn, flash && styles.flashBtnActive]} onPress={onFlashToggle}>
@@ -349,7 +352,7 @@ const styles = StyleSheet.create({
   permissionSecondaryText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.primary },
 
   manualContainer: { flex: 1, backgroundColor: Colors.background },
-  manualHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.md },
+  manualHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 0, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.md },
   backBtn: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
   manualTitle: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: Colors.textPrimary },
   manualScroll: { flex: 1 },
@@ -366,7 +369,7 @@ const styles = StyleSheet.create({
   analyzeBtnTextDisabled: { color: Colors.textTertiary },
 
   cameraContainer: { flex: 1, backgroundColor: '#000' },
-  topFade: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 56, paddingBottom: 24, paddingHorizontal: 24, backgroundColor: 'rgba(0,0,0,0.55)', gap: 6 },
+  topFade: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 0, paddingBottom: 24, paddingHorizontal: 24, backgroundColor: 'rgba(0,0,0,0.55)', gap: 6 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topBarBrand: { fontFamily: Fonts.extrabold, fontSize: FontSizes.base, color: Colors.primary, letterSpacing: 4 },
   flashBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },

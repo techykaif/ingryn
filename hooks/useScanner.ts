@@ -146,7 +146,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
       setStep('camera')
       setScanError({ message: e.message || 'Could not read the image.', allowManual: true })
     }
-  }, [stopTipCycle, processText])
+  }, [stopTipCycle])
 
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current || !cameraReady) return

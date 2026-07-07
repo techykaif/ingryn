@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
     // Cap generously above that to block abuse (huge payloads run up Gemini
     // costs and can blow past its context window) without risking false
     // rejections of legitimate long labels.
-    const MAX_INPUT_LENGTH = 3000
+    const MAX_INPUT_LENGTH = 15000
     if (ingredientText.length > MAX_INPUT_LENGTH) {
       return new Response(
         JSON.stringify({ error: `ingredientText exceeds maximum length of ${MAX_INPUT_LENGTH} characters` }),

@@ -2,10 +2,11 @@ import { useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, TextInput, ActivityIndicator,
-  Platform, Image
+  Image
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
@@ -22,6 +23,7 @@ import Constants from 'expo-constants'
 export default function SettingsScreen() {
   const router = useRouter()
   const { user, setUser } = useAuthStore()
+  const insets = useSafeAreaInsets()
 
   const [showDietaryModal, setShowDietaryModal] = useState(false)
 
@@ -93,9 +95,14 @@ export default function SettingsScreen() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut()
-    setUser(null)
-    router.replace('/(auth)/welcome')
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      setUser(null)
+      router.replace('/(auth)/welcome')
+    } catch (e: any) {
+      setDeleteError(e.message || 'Could not sign out. Please try again.')
+    }
   }
 
   function confirmDeleteAccount() {
@@ -108,7 +115,7 @@ export default function SettingsScreen() {
     setDeleting(true)
     try {
       const { error } = await supabase.rpc('delete_user_account', {
-        user_id: user?.id,
+        target_user_id: user?.id,
       })
       if (error) throw error
       await supabase.auth.signOut()
@@ -131,7 +138,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <Text style={styles.title}>Profile</Text>
         </View>
 
@@ -418,7 +425,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 100 },
 
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 48,
+    paddingTop: 0,
     paddingHorizontal: Spacing['2xl'],
     paddingBottom: Spacing.lg,
   },

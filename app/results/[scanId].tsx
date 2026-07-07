@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator, TextInput, Modal, Platform
+  ScrollView, ActivityIndicator, TextInput, Modal
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
 import { useDietaryPreferences } from '@/hooks/useDietaryPreferences'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
-import { getScoreColor, getSafetyColor, getSafetyLabel, formatDate } from '@/lib/scanUtils'
+import { getScoreColor, getScoreLabel, getSafetyColor, getSafetyLabel, formatDate } from '@/lib/scanUtils'
 import {
   ArrowLeft, PencilSimple, Warning, CheckCircle,
   ShieldWarning, Globe, User, ArrowRight, X
@@ -48,11 +49,11 @@ export default function ResultsScreen() {
   const [errorMsg, setErrorMsg] = useState('')
   const [labelModal, setLabelModal] = useState(false)
   const [labelText, setLabelText] = useState('')
+  const [labelError, setLabelError] = useState('')
   const [saving, setSaving] = useState(false)
+  const insets = useSafeAreaInsets()
 
-  useEffect(() => { fetchResults() }, [scanId])
-
-  async function fetchResults() {
+  const fetchResults = useCallback(async () => {
     if (!user?.id) return
     try {
       const { data: scanData, error: scanError } = await supabase
@@ -77,18 +78,32 @@ export default function ResultsScreen() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [scanId, user?.id])
+
+  useEffect(() => { fetchResults() }, [fetchResults])
 
   async function saveLabel() {
-    if (!labelText.trim() || !user?.id) return
+    if (!labelText.trim()) {
+      setLabelError('Please enter a name for this scan.')
+      return
+    }
+    if (!user?.id) return
     setSaving(true)
     const { error } = await supabase
       .from('scans').update({ label: labelText.trim() }).eq('id', scanId).eq('user_id', user?.id)
     setSaving(false)
-    if (!error) {
+    if (error) {
+      setLabelError(error.message || 'Could not save the name. Please try again.')
+    } else {
       setScan(prev => prev ? { ...prev, label: labelText.trim() } : prev)
+      setLabelError('')
       setLabelModal(false)
     }
+  }
+
+  function openLabelModal() {
+    setLabelError('')
+    setLabelModal(true)
   }
 
   const hasPreferences =
@@ -173,7 +188,7 @@ export default function ResultsScreen() {
   }
 
   const scoreColor = getScoreColor(scan.safety_score)
-  const scoreLabel = scan.safety_score >= 75 ? 'Safe' : scan.safety_score >= 45 ? 'Caution' : 'Harmful'
+  const scoreLabel = getScoreLabel(scan.safety_score)
   const harmfulCount = ingredients.filter(i => i.safety_level === 'harmful').length
   const cautionCount = ingredients.filter(i => i.safety_level === 'caution').length
   const safeCount = ingredients.filter(i => i.safety_level === 'safe').length
@@ -187,11 +202,11 @@ export default function ResultsScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.labelBtn} onPress={() => setLabelModal(true)}>
+          <TouchableOpacity style={styles.labelBtn} onPress={openLabelModal}>
             <Text style={styles.labelBtnText} numberOfLines={1}>
               {scan.label || 'Name this scan'}
             </Text>
@@ -328,20 +343,23 @@ export default function ResultsScreen() {
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Name this scan</Text>
-              <TouchableOpacity onPress={() => setLabelModal(false)} style={styles.modalCloseBtn}>
+              <TouchableOpacity onPress={() => { setLabelModal(false); setLabelError('') }} style={styles.modalCloseBtn}>
                 <X size={16} color={Colors.textSecondary} weight="bold" />
               </TouchableOpacity>
             </View>
             <Text style={styles.modalLabel}>Product name</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, labelError ? { borderColor: Colors.danger, marginBottom: Spacing.sm } : null]}
               value={labelText}
-              onChangeText={setLabelText}
+              onChangeText={t => { setLabelText(t); setLabelError('') }}
               placeholder="e.g. Lays Classic, Coca Cola..."
               placeholderTextColor={Colors.textTertiary}
               autoFocus
               autoCapitalize="words"
             />
+            {labelError ? (
+              <Text style={styles.modalErrorText}>{labelError}</Text>
+            ) : null}
             <TouchableOpacity
               style={[styles.modalBtn, saving && { opacity: 0.6 }, Shadows.primary]}
               onPress={saveLabel}
@@ -378,7 +396,7 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl,
+    paddingTop: 0, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing.xl,
   },
   backBtn: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },
   labelBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, paddingLeft: 16 },
@@ -443,6 +461,7 @@ const styles = StyleSheet.create({
   modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surfaceSecondary, alignItems: 'center', justifyContent: 'center' },
   modalLabel: { fontFamily: Fonts.medium, fontSize: FontSizes.xs, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   modalInput: { backgroundColor: Colors.surfaceSecondary, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textPrimary, marginBottom: Spacing.xl },
+  modalErrorText: { fontFamily: Fonts.medium, fontSize: FontSizes.xs, color: Colors.danger, marginBottom: Spacing.lg, marginTop: -Spacing.sm },
   modalBtn: { borderRadius: Radius.xl, overflow: 'hidden' },
   modalBtnGradient: { paddingVertical: Spacing.xl, alignItems: 'center' },
   modalBtnText: { fontFamily: Fonts.bold, fontSize: FontSizes.lg, color: '#fff' },

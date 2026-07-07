@@ -1,17 +1,18 @@
 import { useCallback, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, RefreshControl, ActivityIndicator, Platform, Image
+  ScrollView, RefreshControl, ActivityIndicator, Image
 } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
   Scan as ScanIcon, Clock, ChartBar,
   ArrowRight, Warning, Bell, Plus, List, SealCheck, ClockCounterClockwise,
-  CheckCircle, Sparkle, ShieldWarning
+  CheckCircle, Sparkle, ShieldWarning, Question
 } from 'phosphor-react-native'
 import { getScoreColor, getScoreLabel, formatDate } from '@/lib/scanUtils'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -27,6 +28,7 @@ type ScanRecord = {
 export default function HomeScreen() {
   const router = useRouter()
   const { user } = useAuthStore()
+  const insets = useSafeAreaInsets()
   const [scans, setScans] = useState<ScanRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -122,7 +124,7 @@ export default function HomeScreen() {
         }
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <View>
             <Text style={styles.greeting}>{getGreeting()},</Text>
             <Text style={styles.name}>{firstName} 👋</Text>
@@ -275,6 +277,7 @@ function ScanCard({ scan, onPress, getScoreColor, getScoreLabel, formatDate }: {
   const label = getScoreLabel(scan.safety_score)
   const isHarmful = label === 'Harmful'
   const isCaution = label === 'Caution'
+  const isNA = label === 'N/A'
   return (
     <TouchableOpacity style={[styles.scanCard, Shadows.sm]} onPress={onPress} activeOpacity={0.8}>
       <View style={[styles.scoreRingOuter, { borderColor: `${color}30` }]}>
@@ -290,7 +293,8 @@ function ScanCard({ scan, onPress, getScoreColor, getScoreLabel, formatDate }: {
         <View style={[styles.safetyBadge, { backgroundColor: `${color}15` }]}>
           {isHarmful && <ShieldWarning size={11} color={color} weight="fill" />}
           {isCaution && <Warning size={11} color={color} weight="fill" />}
-          {!isHarmful && !isCaution && <CheckCircle size={11} color={color} weight="fill" />}
+          {!isHarmful && !isCaution && !isNA && <CheckCircle size={11} color={color} weight="fill" />}
+          {isNA && <Question size={11} color={color} weight="bold" />}
           <Text style={[styles.safetyBadgeText, { color }]}>{label}</Text>
         </View>
         <ArrowRight size={14} color={Colors.textTertiary} weight="bold" />
@@ -327,7 +331,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 100 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing['2xl'],
+    paddingTop: 0, paddingHorizontal: Spacing['2xl'], marginBottom: Spacing['2xl'],
   },
   greeting: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary },
   name: { fontFamily: Fonts.extrabold, fontSize: FontSizes['4xl'], color: Colors.textPrimary, marginTop: 2 },

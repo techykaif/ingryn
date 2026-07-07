@@ -2,10 +2,10 @@ import { useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, TextInput, ActivityIndicator,
-  Platform
 } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -13,9 +13,11 @@ import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/
 import {
   MagnifyingGlass, ClockCounterClockwise, Trash,
   ArrowRight, Warning, CheckCircle, ShieldWarning,
-  Scan as ScanIcon, X
+  Scan as ScanIcon, X, Question
 } from 'phosphor-react-native'
 import { getScoreColor, getScoreLabel, formatDate } from '@/lib/scanUtils'
+
+const PAGE_SIZE = 10
 
 type ScanItem = {
   id: string
@@ -28,6 +30,7 @@ type ScanItem = {
 export default function HistoryScreen() {
   const router = useRouter()
   const { user } = useAuthStore()
+  const insets = useSafeAreaInsets()
   const [scans, setScans] = useState<ScanItem[]>([])
   const [filtered, setFiltered] = useState<ScanItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +41,7 @@ export default function HistoryScreen() {
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const pageSize = 10
+  const pageSize = PAGE_SIZE
 
   const fetchScans = useCallback(async () => {
     setLoading(true)
@@ -62,7 +65,7 @@ export default function HistoryScreen() {
     } finally {
       setLoading(false)
     }
-  }, [user, pageSize])
+  }, [user])
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || !hasMore || !user?.id || searchQuery) return
@@ -138,6 +141,7 @@ export default function HistoryScreen() {
     const label = getScoreLabel(item.safety_score)
     const isHarmful = label === 'Harmful'
     const isCaution = label === 'Caution'
+    const isNA = label === 'N/A'
 
     return (
       <TouchableOpacity
@@ -163,7 +167,8 @@ export default function HistoryScreen() {
           <View style={[styles.badge, { backgroundColor: `${color}15` }]}>
             {isHarmful && <ShieldWarning size={10} color={color} weight="fill" />}
             {isCaution && <Warning size={10} color={color} weight="fill" />}
-            {!isHarmful && !isCaution && <CheckCircle size={10} color={color} weight="fill" />}
+            {!isHarmful && !isCaution && !isNA && <CheckCircle size={10} color={color} weight="fill" />}
+            {isNA && <Question size={10} color={color} weight="bold" />}
             <Text style={[styles.badgeText, { color }]}>{label}</Text>
           </View>
         </View>
@@ -189,7 +194,7 @@ export default function HistoryScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Text style={styles.title}>History</Text>
         <Text style={styles.subtitle}>
           {scans.length} scan{scans.length !== 1 ? 's' : ''}
@@ -292,7 +297,7 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 48,
+    paddingTop: 0,
     paddingHorizontal: Spacing['2xl'],
     paddingBottom: Spacing.lg,
   },

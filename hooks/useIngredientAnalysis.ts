@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase'
-// removed unused import from './useDietaryPreferences'
 import { analyzeIngredients, IngredientAnalysis, UserPreferences } from '@/lib/gemini'
 
 export async function saveAnalysis(
