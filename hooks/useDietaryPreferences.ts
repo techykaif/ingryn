@@ -19,6 +19,7 @@ export function useDietaryPreferences() {
   const [preferences, setPreferences] = useState<DietaryPreferences>(DEFAULT)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     if (user?.id) fetchPreferences()
@@ -39,8 +40,9 @@ export function useDietaryPreferences() {
           diet_type: data.diet_type || 'none',
         })
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('fetchPreferences error:', e)
+      setErrorMsg(e.message || 'Could not load your dietary preferences.')
     } finally {
       setLoading(false)
     }
@@ -48,6 +50,7 @@ export function useDietaryPreferences() {
 
   async function savePreferences(prefs: DietaryPreferences): Promise<boolean> {
     setSaving(true)
+    setErrorMsg('')
     try {
       const { error } = await supabase
         .from('dietary_preferences')
@@ -65,13 +68,14 @@ export function useDietaryPreferences() {
       if (error) throw error
       setPreferences(prefs)
       return true
-    } catch (e) {
+    } catch (e: any) {
       console.error('savePreferences error:', e)
+      setErrorMsg(e.message || 'Failed to save dietary preferences.')
       return false
     } finally {
       setSaving(false)
     }
   }
 
-  return { preferences, loading, saving, savePreferences, fetchPreferences }
+  return { preferences, loading, saving, errorMsg, setErrorMsg, savePreferences, fetchPreferences }
 }

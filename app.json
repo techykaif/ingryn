@@ -55,7 +55,8 @@
           "photosPermission": "INGRYN needs photo library access to scan ingredient labels from images."
         }
       ],
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true

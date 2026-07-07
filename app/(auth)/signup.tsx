@@ -8,8 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
-import { supabase } from '@/lib/supabase'
 import { validateEmail } from '@/lib/emailValidator'
+import { signInWithGoogle } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
   ArrowLeft, EnvelopeSimple, Lock, Eye, EyeSlash,
@@ -29,7 +30,7 @@ function getSignUpErrorMessage(error: { message: string; status?: number }): str
   return `Sign up failed: ${error.message}`
 }
 
-function PasswordStrength({ password }: { password: string }) {
+export function PasswordStrength({ password }: { password: string }) {
   const hasUpper = /[A-Z]/.test(password)
   const hasLower = /[a-z]/.test(password)
   const hasNumber = /\d/.test(password)
@@ -108,6 +109,21 @@ export default function SignUpScreen() {
       // If session exists, AuthGate in _layout.tsx handles the redirect
     } catch (e: any) {
       setErrorMsg(e.message ?? 'Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleGoogleOAuth() {
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const res = await signInWithGoogle()
+      if (!res?.success && res?.error !== 'canceled') {
+        setErrorMsg('Google sign-in failed. Please try again.')
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Google sign-in encountered an error.')
     } finally {
       setLoading(false)
     }
@@ -257,11 +273,13 @@ export default function SignUpScreen() {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Google */}
-        <TouchableOpacity style={[styles.googleBtn, Shadows.sm]} activeOpacity={0.8} onPress={() => setErrorMsg('Google sign-in is coming soon. Please use email and password for now.')}>
-          <Text style={styles.googleIcon}>G</Text>
-          <Text style={styles.googleText}>Continue with Google</Text>
-        </TouchableOpacity>
+        {/* Google (Native Only) */}
+        {Platform.OS !== 'web' && (
+          <TouchableOpacity style={[styles.googleBtn, Shadows.sm, loading && styles.btnDisabled]} activeOpacity={0.8} onPress={handleGoogleOAuth} disabled={loading}>
+            <Text style={styles.googleIcon}>G</Text>
+            <Text style={styles.googleText}>Continue with Google</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           onPress={() => router.push('/(auth)/signin')}
@@ -332,20 +350,13 @@ const styles = StyleSheet.create({
   primaryBtnText: { fontFamily: Fonts.bold, fontSize: FontSizes.lg, color: '#fff' },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: Spacing.xl },
   dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: Colors.textTertiary },
-  googleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: Radius.xl, paddingVertical: Spacing.lg, gap: 12, marginBottom: Spacing.xl,
-  },
-  googleIcon: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: Colors.textPrimary },
-  googleText: { fontFamily: Fonts.medium, fontSize: FontSizes.base, color: Colors.textSecondary },
-  linkBtn: { alignItems: 'center', paddingVertical: Spacing.sm },
-  linkBtnText: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary },
+  dividerText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.textTertiary, paddingHorizontal: Spacing.md },
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, paddingVertical: Spacing.lg, gap: Spacing.sm },
+  googleIcon: { fontFamily: Fonts.extrabold, fontSize: FontSizes.lg, color: '#4285F4' },
+  googleText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.textPrimary },
+  linkBtn: { padding: Spacing.md, alignItems: 'center', marginTop: Spacing.md },
+  linkBtnText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.textSecondary },
   linkBtnHighlight: { fontFamily: Fonts.bold, color: Colors.primary },
-  legal: {
-    fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.textTertiary,
-    textAlign: 'center', lineHeight: 18, marginTop: Spacing.md, paddingHorizontal: Spacing.lg,
-  },
-  legalLink: { fontFamily: Fonts.semibold, color: Colors.primary, textDecorationLine: 'underline' },
+  legal: { fontFamily: Fonts.regular, fontSize: FontSizes.xs, color: Colors.textTertiary, textAlign: 'center', marginTop: Spacing['2xl'] },
+  legalLink: { color: Colors.primary, fontFamily: Fonts.medium, textDecorationLine: 'underline' },
 })

@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '@/lib/supabase'
+import { signInWithGoogle } from '@/lib/auth'
 import { validateEmail } from '@/lib/emailValidator'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
@@ -112,7 +113,21 @@ export default function SignInScreen() {
       setErrorMsg(remaining <= 2 ? `${base} ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.` : base)
     } else {
       attempts.current = 0; lockoutCount.current = 0; lockoutUntil.current = null
-      // AuthGate in _layout.tsx handles the redirect via onAuthStateChange
+    }
+  }
+
+  async function handleGoogleOAuth() {
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const res = await signInWithGoogle()
+      if (!res?.success && res?.error !== 'canceled') {
+        setErrorMsg('Google sign-in failed. Please try again.')
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Google sign-in encountered an error.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -334,11 +349,13 @@ export default function SignInScreen() {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Google button */}
-        <TouchableOpacity style={[styles.googleBtn, Shadows.sm]} activeOpacity={0.8} onPress={() => setErrorMsg('Google sign-in is coming soon. Please use email and password for now.') }>
-          <Text style={styles.googleIcon}>G</Text>
-          <Text style={styles.googleText}>Continue with Google</Text>
-        </TouchableOpacity>
+        {/* Google button (Native Only) */}
+        {Platform.OS !== 'web' && (
+          <TouchableOpacity style={[styles.googleBtn, Shadows.sm, loading && styles.btnDisabled]} activeOpacity={0.8} onPress={handleGoogleOAuth} disabled={loading}>
+            <Text style={styles.googleIcon}>G</Text>
+            <Text style={styles.googleText}>Continue with Google</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity onPress={() => router.push('/(auth)/signup')} style={styles.linkBtn}>
           <Text style={styles.linkBtnText}>
@@ -381,12 +398,12 @@ const styles = StyleSheet.create({
   primaryBtnText: { fontFamily: Fonts.bold, fontSize: FontSizes.lg, color: '#fff' },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: Spacing.xl },
   dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: Colors.textTertiary },
-  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.xl, paddingVertical: Spacing.lg, gap: 12, marginBottom: Spacing.xl },
-  googleIcon: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: Colors.textPrimary },
-  googleText: { fontFamily: Fonts.medium, fontSize: FontSizes.base, color: Colors.textSecondary },
-  linkBtn: { alignItems: 'center', paddingVertical: Spacing.sm },
-  linkBtnText: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary },
+  dividerText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.textTertiary, paddingHorizontal: Spacing.md },
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, paddingVertical: Spacing.lg, gap: Spacing.sm },
+  googleIcon: { fontFamily: Fonts.extrabold, fontSize: FontSizes.lg, color: '#4285F4' },
+  googleText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.textPrimary },
+  linkBtn: { padding: Spacing.md, alignItems: 'center', marginTop: Spacing.md },
+  linkBtnText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.textSecondary },
   linkBtnHighlight: { fontFamily: Fonts.bold, color: Colors.primary },
   // Forgot mode
   successContainer: { alignItems: 'center', paddingTop: Spacing.xl, gap: Spacing.lg },

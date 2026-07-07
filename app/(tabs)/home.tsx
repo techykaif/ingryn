@@ -34,9 +34,11 @@ export default function HomeScreen() {
   const [totalScans, setTotalScans] = useState(0)
   const [harmfulCount, setHarmfulCount] = useState(0)
   const [safeCount, setSafeCount] = useState(0)
+  const [errorMsg, setErrorMsg] = useState('')
 
   const fetchData = useCallback(async () => {
     try {
+      setErrorMsg('')
       if (!user?.id) return
       const fullName = user?.user_metadata?.full_name || user?.email || ''
       setFirstName(fullName.split(' ')[0] || 'there')
@@ -78,8 +80,9 @@ export default function HomeScreen() {
       setTotalScans(count || 0)
       setHarmfulCount(harmful || 0)
       setSafeCount(safe || 0)
-    } catch (e) {
+    } catch (e: any) {
       console.error('Home fetch error:', e)
+      setErrorMsg(e.message || 'Failed to load your dashboard data.')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -138,6 +141,13 @@ export default function HomeScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
+
+        {errorMsg ? (
+          <View style={styles.errorBanner}>
+            <Warning size={14} color={Colors.danger} weight="fill" />
+            <Text style={styles.errorBannerText}>{errorMsg}</Text>
+          </View>
+        ) : null}
 
         {/* Hero scan card */}
         <TouchableOpacity
@@ -324,6 +334,8 @@ const styles = StyleSheet.create({
   avatarBtn: { borderRadius: Radius.full, overflow: 'hidden' },
   avatarGradient: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: '#fff' },
+  errorBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: `${Colors.danger}15`, padding: Spacing.md, borderRadius: Radius.lg, gap: Spacing.sm, marginHorizontal: Spacing['2xl'], marginBottom: Spacing.xl },
+  errorBannerText: { flex: 1, fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger, lineHeight: 20 },
   heroWrapper: { marginHorizontal: Spacing['2xl'], marginBottom: Spacing.xl, borderRadius: Radius['2xl'], overflow: 'hidden', ...Shadows.primary },
   heroCard: { borderRadius: Radius['2xl'], padding: Spacing['2xl'], flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
   heroCircle1: { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.08)', top: -60, right: -40 },

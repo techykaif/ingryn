@@ -48,7 +48,7 @@ type Props = {
 }
 
 export function DietaryPreferencesModal({ visible, onClose }: Props) {
-  const { preferences, loading, saving, savePreferences } = useDietaryPreferences()
+  const { preferences, loading, saving, savePreferences, errorMsg } = useDietaryPreferences()
   const { height: windowHeight } = useWindowDimensions()
   const [local, setLocal] = useState<DietaryPreferences>({
     conditions: [],
@@ -127,12 +127,12 @@ export function DietaryPreferencesModal({ visible, onClose }: Props) {
               <Text style={styles.successText}>Preferences saved successfully</Text>
             </View>
           )}
-          {saveStatus === 'error' && (
+          {(saveStatus === 'error' || errorMsg) ? (
             <View style={styles.errorBanner}>
               <Warning size={16} color={Colors.danger} weight="fill" />
-              <Text style={styles.errorText}>Could not save. Please try again.</Text>
+              <Text style={styles.errorText}>{errorMsg || 'Could not save. Please try again.'}</Text>
             </View>
-          )}
+          ) : null}
 
           {loading ? (
             <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />

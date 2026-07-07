@@ -6,6 +6,7 @@
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-native-ml-kit/text-recognition": "^2.0.0",
     "@supabase/supabase-js": "^2.107.0",
     "expo": "~56.0.9",
