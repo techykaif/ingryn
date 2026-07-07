@@ -12,9 +12,8 @@ import { validateEmail } from '@/lib/emailValidator'
 import { signInWithGoogle } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
-import {
   ArrowLeft, EnvelopeSimple, Lock, Eye, EyeSlash,
-  Warning, ArrowRight, UserCircle, CheckCircle
+  Warning, ArrowRight, UserCircle, CheckCircle, GoogleLogo
 } from 'phosphor-react-native'
 
 function getSignUpErrorMessage(error: { message: string; status?: number }): string {
@@ -273,10 +272,9 @@ export default function SignUpScreen() {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Google (Native Only) */}
         {Platform.OS !== 'web' && (
           <TouchableOpacity style={[styles.googleBtn, Shadows.sm, loading && styles.btnDisabled]} activeOpacity={0.8} onPress={handleGoogleOAuth} disabled={loading}>
-            <Text style={styles.googleIcon}>G</Text>
+            <GoogleLogo size={22} color="#4285F4" weight="bold" />
             <Text style={styles.googleText}>Continue with Google</Text>
           </TouchableOpacity>
         )}

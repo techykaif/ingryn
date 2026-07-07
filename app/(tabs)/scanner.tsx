@@ -1,9 +1,10 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, TextInput, KeyboardAvoidingView,
   Platform, ScrollView, useWindowDimensions
 } from 'react-native'
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing, withDelay } from 'react-native-reanimated'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -101,12 +102,29 @@ export default function ScannerScreen() {
 
 // ─── Processing ───────────────────────────────────────────────────────────────
 function ProcessingScreen({ tip, tipIndex, total, onCancel }: { tip: string; tipIndex: number; total: number; onCancel: () => void }) {
+  const pulse1 = useSharedValue(1)
+  const pulse2 = useSharedValue(1)
+  const pulse3 = useSharedValue(1)
+
+  useEffect(() => {
+    pulse1.value = withRepeat(withSequence(withTiming(1.6, { duration: 1200, easing: Easing.out(Easing.ease) }), withTiming(1, { duration: 0 })), -1, false)
+    pulse2.value = withDelay(400, withRepeat(withSequence(withTiming(1.6, { duration: 1200, easing: Easing.out(Easing.ease) }), withTiming(1, { duration: 0 })), -1, false))
+    pulse3.value = withDelay(800, withRepeat(withSequence(withTiming(1.6, { duration: 1200, easing: Easing.out(Easing.ease) }), withTiming(1, { duration: 0 })), -1, false))
+  }, [])
+
+  const style1 = useAnimatedStyle(() => ({ transform: [{ scale: pulse1.value }], opacity: 1 - (pulse1.value - 1) / 0.6 }))
+  const style2 = useAnimatedStyle(() => ({ transform: [{ scale: pulse2.value }], opacity: 1 - (pulse2.value - 1) / 0.6 }))
+  const style3 = useAnimatedStyle(() => ({ transform: [{ scale: pulse3.value }], opacity: 1 - (pulse3.value - 1) / 0.6 }))
+
   return (
     <View style={styles.processingContainer}>
       <StatusBar style="dark" />
-      <View style={styles.processingRing}>
+      <View style={styles.processingRingsContainer}>
+        <Animated.View style={[styles.pulseRing, style3]} />
+        <Animated.View style={[styles.pulseRing, style2]} />
+        <Animated.View style={[styles.pulseRing, style1]} />
         <View style={styles.processingRingInner}>
-          <ActivityIndicator color={Colors.primary} size="large" />
+          <Scan size={32} color={Colors.primary} weight="bold" />
         </View>
       </View>
       <Text style={styles.processingTitle}>Analysing</Text>
@@ -329,7 +347,8 @@ function CameraScreen({
 
 const styles = StyleSheet.create({
   processingContainer: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, paddingHorizontal: Spacing['3xl'] },
-  processingRing: { width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.primaryLight, borderWidth: 2, borderColor: `${Colors.primary}30`, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
+  processingRingsContainer: { width: 140, height: 140, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
+  pulseRing: { position: 'absolute', width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.primary },
   processingRingInner: { width: 76, height: 76, borderRadius: 38, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },
   processingTitle: { fontFamily: Fonts.extrabold, fontSize: FontSizes['4xl'], color: Colors.textPrimary },
   processingSubtitle: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary, marginTop: -Spacing.sm },

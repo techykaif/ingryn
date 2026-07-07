@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, TextInput, ActivityIndicator,
@@ -24,7 +24,7 @@ type ScanItem = {
   label: string | null
   safety_score: number | null
   created_at: string
-  ingredient_ids: string[]
+  ingredient_count: number
 }
 
 export default function HistoryScreen() {
@@ -41,6 +41,7 @@ export default function HistoryScreen() {
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const pageSize = PAGE_SIZE
 
   const fetchScans = useCallback(async () => {
@@ -48,12 +49,18 @@ export default function HistoryScreen() {
     setErrorMessage('')
     try {
       if (!user?.id) return
-      const { data, error } = await supabase
+      let query = supabase
         .from('scans')
-        .select('id, label, safety_score, created_at, ingredient_ids')
+        .select('id, label, safety_score, created_at, ingredient_count')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
         .range(0, pageSize - 1)
+
+      if (debouncedSearch) {
+        query = query.ilike('label', `%${debouncedSearch}%`)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setScans(data || [])
@@ -65,27 +72,34 @@ export default function HistoryScreen() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, debouncedSearch, pageSize])
 
   const loadMore = useCallback(async () => {
-    if (loading || loadingMore || !hasMore || !user?.id || searchQuery) return
+    if (loading || loadingMore || !hasMore || !user?.id) return
     setLoadingMore(true)
     try {
       const nextPage = page + 1
       const from = nextPage * pageSize
       const to = from + pageSize - 1
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('scans')
-        .select('id, label, safety_score, created_at, ingredient_ids')
+        .select('id, label, safety_score, created_at, ingredient_count')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
         .range(from, to)
+
+      if (debouncedSearch) {
+        query = query.ilike('label', `%${debouncedSearch}%`)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       const newRows = data || []
       const combined = [...scans, ...newRows]
       setScans(combined)
-      setFiltered(searchQuery ? combined.filter(s => (s.label || '').toLowerCase().includes(searchQuery.toLowerCase())) : combined)
+      setFiltered(combined)
       setPage(nextPage)
       setHasMore(newRows.length === pageSize)
     } catch (e: any) {
@@ -93,20 +107,28 @@ export default function HistoryScreen() {
     } finally {
       setLoadingMore(false)
     }
-  }, [loading, loadingMore, hasMore, user, page, pageSize, searchQuery, scans])
+  }, [loading, loadingMore, hasMore, user, page, pageSize, debouncedSearch, scans])
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim())
+    }, 400)
+    return () => clearTimeout(handler)
+  }, [searchQuery])
+
+  useEffect(() => {
+    if (user?.id) fetchScans()
+  }, [debouncedSearch, fetchScans, user?.id])
 
   useFocusEffect(useCallback(() => { fetchScans() }, [fetchScans]))
 
   function handleSearch(text: string) {
     setSearchQuery(text)
-    if (!text.trim()) { setFiltered(scans); return }
-    const q = text.toLowerCase()
-    setFiltered(scans.filter(s => (s.label || '').toLowerCase().includes(q)))
   }
 
   function clearSearch() {
     setSearchQuery('')
-    setFiltered(scans)
+    setDebouncedSearch('')
   }
 
   function confirmDelete(scanId: string) {
@@ -125,9 +147,7 @@ export default function HistoryScreen() {
       if (error) throw error
       const updated = scans.filter(s => s.id !== scanId)
       setScans(updated)
-      setFiltered(updated.filter(s =>
-        !searchQuery || (s.label || '').toLowerCase().includes(searchQuery.toLowerCase())
-      ))
+      setFiltered(updated)
       setErrorMessage('')
     } catch (e: any) {
       setErrorMessage(e.message || 'Unable to delete this scan right now.')
@@ -162,7 +182,7 @@ export default function HistoryScreen() {
             {item.label || 'Unnamed scan'}
           </Text>
           <Text style={styles.cardMeta}>
-            {item.ingredient_ids?.length || 0} ingredients · {formatDate(item.created_at)}
+            {item.ingredient_count || 0} ingredients · {formatDate(item.created_at)}
           </Text>
           <View style={[styles.badge, { backgroundColor: `${color}15` }]}>
             {isHarmful && <ShieldWarning size={10} color={color} weight="fill" />}
@@ -270,9 +290,7 @@ export default function HistoryScreen() {
           ListFooterComponent={
             loadingMore
               ? <ActivityIndicator color={Colors.primary} style={styles.loadMoreSpinner} />
-              : searchQuery && hasMore
-                ? <Text style={styles.moreText}>Showing results from loaded scans only</Text>
-                : null
+              : null
           }
         />
       )}

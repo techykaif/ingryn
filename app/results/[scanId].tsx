@@ -8,8 +8,9 @@ import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/store'
+import { useAuthStore, useScanProgressStore } from '@/store'
 import { useDietaryPreferences } from '@/hooks/useDietaryPreferences'
+import { parseIngredientNames } from '@/hooks/useIngredientAnalysis'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import { getScoreColor, getScoreLabel, getSafetyColor, getSafetyLabel, formatDate } from '@/lib/scanUtils'
 import {
@@ -42,6 +43,7 @@ export default function ResultsScreen() {
   const router = useRouter()
   const { preferences } = useDietaryPreferences()
   const { user } = useAuthStore()
+  const isProcessing = useScanProgressStore(state => state.activeScans[scanId])
 
   const [scan, setScan] = useState<ScanData | null>(null)
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
@@ -81,6 +83,14 @@ export default function ResultsScreen() {
   }, [scanId, user?.id])
 
   useEffect(() => { fetchResults() }, [fetchResults])
+
+  useEffect(() => {
+    if (!isProcessing) return
+    const interval = setInterval(() => {
+      fetchResults()
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [isProcessing, fetchResults])
 
   async function saveLabel() {
     if (!labelText.trim()) {
@@ -218,13 +228,23 @@ export default function ResultsScreen() {
         <View style={[styles.scoreCard, Shadows.md]}>
           <View style={styles.scoreLeft}>
             <Text style={styles.scoreTitle}>Safety score</Text>
-            <Text style={[styles.scoreNumber, { color: scoreColor }]}>{scan.safety_score}</Text>
+            {isProcessing && ingredients.length === 0 ? (
+              <ActivityIndicator color={Colors.primary} size="small" style={{ alignSelf: 'flex-start', marginVertical: 8 }} />
+            ) : (
+              <Text style={[styles.scoreNumber, { color: scoreColor }]}>{scan.safety_score}</Text>
+            )}
             <Text style={styles.scoreDate}>{formatDate(scan.created_at, true)}</Text>
           </View>
           <View style={[styles.scoreRing, { borderColor: `${scoreColor}40` }]}>
             <View style={[styles.scoreRingInner, { backgroundColor: `${scoreColor}12` }]}>
-              <Text style={[styles.scoreRingNum, { color: scoreColor }]}>{scan.safety_score}</Text>
-              <Text style={[styles.scoreRingLabel, { color: scoreColor }]}>{scoreLabel}</Text>
+              {isProcessing && ingredients.length === 0 ? (
+                 <ActivityIndicator color={scoreColor} size="small" />
+              ) : (
+                <>
+                  <Text style={[styles.scoreRingNum, { color: scoreColor }]}>{scan.safety_score}</Text>
+                  <Text style={[styles.scoreRingLabel, { color: scoreColor }]}>{scoreLabel}</Text>
+                </>
+              )}
             </View>
           </View>
         </View>
@@ -246,6 +266,13 @@ export default function ResultsScreen() {
             </View>
           ))}
         </View>
+
+        {isProcessing && (
+          <View style={styles.processingAlert}>
+            <ActivityIndicator color={Colors.primary} size="small" />
+            <Text style={styles.processingAlertText}>AI is analyzing ingredients in the background...</Text>
+          </View>
+        )}
 
         {/* Personal flag alert */}
         {hasPreferences && flaggedIngredients.length > 0 && (
@@ -274,7 +301,9 @@ export default function ResultsScreen() {
 
         {/* Ingredients */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ingredients ({ingredients.length})</Text>
+          <Text style={styles.sectionTitle}>
+            Ingredients ({ingredients.length}{isProcessing ? '...' : ''})
+          </Text>
           {ingredients.map(ingredient => {
             const personalFlag = getPersonalFlag(ingredient)
             const safetyColor = getSafetyColor(ingredient.safety_level)
@@ -333,6 +362,17 @@ export default function ResultsScreen() {
               </TouchableOpacity>
             )
           })}
+
+          {isProcessing && Array.from({ length: Math.min(5, Math.max(1, parseIngredientNames(scan.raw_ocr_text).length - ingredients.length)) }).map((_, i) => (
+            <View key={`skel-${i}`} style={[styles.card, Shadows.sm, { opacity: 0.5 }]}>
+              <View style={styles.cardTop}>
+                <View style={[styles.skeletonLine, { width: '40%' }]} />
+                <View style={[styles.skeletonLine, { width: 60 }]} />
+              </View>
+              <View style={[styles.skeletonLine, { width: '80%', marginTop: 8 }]} />
+              <View style={[styles.skeletonLine, { width: '60%', marginTop: 4 }]} />
+            </View>
+          ))}
         </View>
       </ScrollView>
 
@@ -427,6 +467,10 @@ const styles = StyleSheet.create({
 
   banAlert: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginHorizontal: Spacing['2xl'], backgroundColor: Colors.dangerLight, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.xl },
   banAlertText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger, flex: 1 },
+
+  processingAlert: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginHorizontal: Spacing['2xl'], backgroundColor: Colors.primaryLight, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md },
+  processingAlertText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.primary, flex: 1 },
+  skeletonLine: { height: 14, backgroundColor: Colors.border, borderRadius: 4 },
 
   section: { paddingHorizontal: Spacing['2xl'] },
   sectionTitle: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: Colors.textPrimary, marginBottom: Spacing.lg },

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { analyzeIngredients, IngredientAnalysis, UserPreferences } from '@/lib/gemini'
+import { useScanProgressStore } from '@/store'
 
 export async function saveAnalysis(
   text: string,
@@ -16,26 +17,16 @@ export async function saveAnalysis(
     // Step 1: Check cache for all ingredients at once
     const { cachedIds, unknownNames } = await checkCache(ingredientNames)
 
-    // Step 2: Only call Gemini for ingredients not in cache
-    let newIds: string[] = []
-    if (unknownNames.length > 0) {
-      const analysis = await analyzeIngredients(unknownNames.join(', '), preferences)
-      newIds = await saveIngredients(analysis)
-    }
-
-    // Step 3: Combine cached + new ingredient IDs
-    const ingredientIds = [...cachedIds, ...newIds]
-
-    if (ingredientIds.length === 0) {
-      throw new Error('No ingredients could be identified')
-    }
-
-    // Step 4: Calculate safety score from DB
-    const allIngredients = await fetchIngredientsByIds(ingredientIds)
+    // Step 2: Create scan immediately with cached ingredients
+    const allIngredients = await fetchIngredientsByIds(cachedIds)
     const safetyScore = calculateSafetyScore(allIngredients)
+    const scanId = await saveScan({ userId, text, safetyScore, ingredientIds: cachedIds })
 
-    // Step 5: Save scan
-    const scanId = await saveScan({ userId, text, safetyScore, ingredientIds })
+    // Step 3: Process unknown ingredients progressively in background
+    if (unknownNames.length > 0) {
+      useScanProgressStore.getState().setActiveScan(scanId, true)
+      processUnknownIngredientsInBackground(scanId, unknownNames, cachedIds, preferences)
+    }
 
     return { scanId }
   } catch (e: any) {
@@ -66,8 +57,39 @@ export async function saveAnalysis(
   }
 }
 
+async function processUnknownIngredientsInBackground(
+  scanId: string,
+  unknownNames: string[],
+  currentIds: string[],
+  preferences?: UserPreferences
+) {
+  try {
+    const chunkSize = 5 // Process 5 ingredients at a time
+    for (let i = 0; i < unknownNames.length; i += chunkSize) {
+      const chunk = unknownNames.slice(i, i + chunkSize)
+      try {
+        const analysis = await analyzeIngredients(chunk.join(', '), preferences)
+        const newIds = await saveIngredients(analysis)
+        
+        currentIds = [...currentIds, ...newIds]
+        const allIngredients = await fetchIngredientsByIds(currentIds)
+        const safetyScore = calculateSafetyScore(allIngredients)
+        
+        await supabase
+          .from('scans')
+          .update({ ingredient_ids: currentIds, safety_score: safetyScore })
+          .eq('id', scanId)
+      } catch (e) {
+        console.warn('Failed to process chunk', chunk, e)
+      }
+    }
+  } finally {
+    useScanProgressStore.getState().setActiveScan(scanId, false)
+  }
+}
+
 // Split raw text into individual ingredient names
-function parseIngredientNames(text: string): string[] {
+export function parseIngredientNames(text: string): string[] {
   return text
     .split(/,|;|\n/)
     .map(s => s.trim().toLowerCase())

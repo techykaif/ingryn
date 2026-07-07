@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Stack, useRouter, useSegments } from 'expo-router'
+import { useEffect, useState, useRef, type ReactNode } from 'react'
+import { Stack, useRouter, useSegments, usePathname } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View, ActivityIndicator } from 'react-native'
@@ -33,6 +33,8 @@ function AuthGate({ children }: { children: ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true)
   const router = useRouter()
   const segments = useSegments()
+  const pathname = usePathname()
+  const pendingRoute = useRef<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -73,17 +75,24 @@ function AuthGate({ children }: { children: ReactNode }) {
     const onRootIndex = !inAuthGroup && !inTabsGroup && !authOnlyDetailRoutes.has(segments[0] ?? '')
 
     if (user) {
-      if (inAuthGroup || onRootIndex) {
+      if (pendingRoute.current) {
+        const route = pendingRoute.current
+        pendingRoute.current = null
+        router.replace(route as any)
+      } else if (inAuthGroup || onRootIndex) {
         router.replace('/(tabs)/home')
       }
     } else {
       // No onboarding step — every signed-out user (new or just logged out)
       // lands on the welcome screen, which offers both sign up and sign in.
       if (!inAuthGroup) {
+        if (!onRootIndex && !publicStandaloneRoutes.has(segments[0] ?? '')) {
+          pendingRoute.current = pathname
+        }
         router.replace('/(auth)/welcome')
       }
     }
-  }, [user, segments, authLoading, router])
+  }, [user, segments, authLoading, router, pathname])
 
   useEffect(() => {
     if (!authLoading) {

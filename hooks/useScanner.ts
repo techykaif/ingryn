@@ -154,9 +154,8 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.75,
+        quality: 0.85,
         base64: false,
-        skipProcessing: true,
       })
 
       if (!photo?.uri) return

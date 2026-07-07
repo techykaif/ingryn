@@ -48,7 +48,7 @@ export default function HomeScreen() {
       const [{ data, error }, { count }, { count: harmful }, { count: safe }] = await Promise.all([
         supabase
           .from('scans')
-          .select('id, label, safety_score, created_at, ingredient_ids')
+          .select('id, label, safety_score, created_at, ingredient_count')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(5),
@@ -75,7 +75,7 @@ export default function HomeScreen() {
         label: s.label,
         safety_score: s.safety_score,
         created_at: s.created_at,
-        ingredient_count: s.ingredient_ids?.length || 0,
+        ingredient_count: s.ingredient_count || 0,
       }))
 
       setScans(mapped)

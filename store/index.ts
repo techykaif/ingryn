@@ -10,3 +10,15 @@ export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   setUser: (user) => set({ user }),
 }))
+
+type ScanProgressStore = {
+  activeScans: Record<string, boolean>
+  setActiveScan: (scanId: string, isActive: boolean) => void
+}
+
+export const useScanProgressStore = create<ScanProgressStore>((set) => ({
+  activeScans: {},
+  setActiveScan: (scanId, isActive) => set((state) => ({
+    activeScans: { ...state.activeScans, [scanId]: isActive }
+  }))
+}))

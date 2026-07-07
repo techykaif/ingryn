@@ -14,7 +14,7 @@ import { validateEmail } from '@/lib/emailValidator'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
   ArrowLeft, EnvelopeSimple, Lock, Eye, EyeSlash,
-  Warning, CheckCircle, ArrowRight
+  Warning, CheckCircle, ArrowRight, GoogleLogo
 } from 'phosphor-react-native'
 
 const MAX_ATTEMPTS = 5
@@ -352,7 +352,7 @@ export default function SignInScreen() {
         {/* Google button (Native Only) */}
         {Platform.OS !== 'web' && (
           <TouchableOpacity style={[styles.googleBtn, Shadows.sm, loading && styles.btnDisabled]} activeOpacity={0.8} onPress={handleGoogleOAuth} disabled={loading}>
-            <Text style={styles.googleIcon}>G</Text>
+            <GoogleLogo size={22} color="#4285F4" weight="bold" />
             <Text style={styles.googleText}>Continue with Google</Text>
           </TouchableOpacity>
         )}
