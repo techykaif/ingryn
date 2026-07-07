@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   successText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.success },
   errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.dangerLight, borderRadius: Radius.lg, padding: Spacing.md, marginBottom: 12 },
   errorText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger },
-  scroll: { flex: 1, minHeight: 0 },
+  scroll: { flexShrink: 1 },
   scrollContent: { paddingBottom: 8 },
   sectionTitle: { fontFamily: Fonts.bold, fontSize: FontSizes.xs, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, marginTop: 6 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
