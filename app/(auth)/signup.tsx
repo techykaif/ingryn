@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, ScrollView
+  ActivityIndicator, ScrollView, Image
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -13,7 +13,7 @@ import { validateEmail } from '@/lib/emailValidator'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
   ArrowLeft, EnvelopeSimple, Lock, Eye, EyeSlash,
-  Warning, ArrowRight, Leaf, UserCircle, CheckCircle
+  Warning, ArrowRight, UserCircle, CheckCircle
 } from 'phosphor-react-native'
 
 function getSignUpErrorMessage(error: { message: string; status?: number }): string {
@@ -116,7 +116,7 @@ export default function SignUpScreen() {
           <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
         </TouchableOpacity>
         <View style={styles.logoMini}>
-          <Leaf size={16} color={Colors.primary} weight="fill" />
+          <Image source={require('@/assets/icon.png')} style={styles.logoMiniImage} />
           <Text style={styles.logoMiniText}>INGRYN</Text>
         </View>
         <View style={{ width: 40 }} />
@@ -283,6 +283,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },
   logoMini: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  logoMiniImage: { width: 20, height: 20, borderRadius: 6 },
   logoMiniText: { fontFamily: Fonts.extrabold, fontSize: FontSizes.sm, color: Colors.textPrimary, letterSpacing: 3 },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: Spacing['2xl'], paddingBottom: 48 },

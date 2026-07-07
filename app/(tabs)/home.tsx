@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, RefreshControl, ActivityIndicator, Platform
+  ScrollView, RefreshControl, ActivityIndicator, Platform, Image
 } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
-  Scan as ScanIcon, Clock, ChartBar, Leaf,
+  Scan as ScanIcon, Clock, ChartBar,
   ArrowRight, Warning, CheckCircle, ShieldWarning,
   User, Sparkle
 } from 'phosphor-react-native'
@@ -304,9 +304,7 @@ function ScanCard({ scan, onPress, getScoreColor, getScoreLabel, formatDate }: {
 function EmptyState({ onScan }: { onScan: () => void }) {
   return (
     <View style={styles.emptyState}>
-      <View style={styles.emptyIconBox}>
-        <Leaf size={32} color={Colors.primary} weight="fill" />
-      </View>
+      <Image source={require('@/assets/icon.png')} style={styles.emptyIconBox} />
       <Text style={styles.emptyTitle}>No scans yet</Text>
       <Text style={styles.emptySubtitle}>Scan your first product to see{'\n'}what's really inside</Text>
       <TouchableOpacity style={styles.emptyBtn} onPress={onScan}>
@@ -369,7 +367,7 @@ const styles = StyleSheet.create({
   safetyBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full },
   safetyBadgeText: { fontFamily: Fonts.bold, fontSize: FontSizes.xs },
   emptyState: { alignItems: 'center', paddingVertical: Spacing['4xl'], gap: Spacing.md },
-  emptyIconBox: { width: 80, height: 80, borderRadius: Radius['2xl'], backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
+  emptyIconBox: { width: 80, height: 80, borderRadius: Radius['2xl'], marginBottom: Spacing.sm },
   emptyTitle: { fontFamily: Fonts.bold, fontSize: FontSizes['2xl'], color: Colors.textPrimary },
   emptySubtitle: { fontFamily: Fonts.regular, fontSize: FontSizes.base, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
   emptyBtn: { marginTop: Spacing.sm, borderRadius: Radius.xl, overflow: 'hidden', ...Shadows.primary },

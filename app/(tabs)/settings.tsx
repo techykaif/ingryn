@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, TextInput, ActivityIndicator,
-  Platform
+  Platform, Image
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -14,7 +14,7 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import {
   User, PencilSimple, Lock, SignOut, Trash,
   ShieldCheck, FileText, Info, CaretRight,
-  CheckCircle, Leaf, X, Eye, EyeSlash
+  CheckCircle, X, Eye, EyeSlash
 } from 'phosphor-react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import Constants from 'expo-constants'
@@ -147,7 +147,7 @@ export default function SettingsScreen() {
             <Text style={styles.profileEmail} numberOfLines={1}>{email}</Text>
           </View>
           <View style={[styles.profileBadge]}>
-            <Leaf size={12} color={Colors.primary} weight="fill" />
+            <Image source={require('@/assets/icon.png')} style={styles.profileBadgeIcon} />
             <Text style={styles.profileBadgeText}>Free</Text>
           </View>
         </View>
@@ -292,8 +292,8 @@ export default function SettingsScreen() {
         <SectionHeader title="Preferences" />
 
         <SettingRow
-          icon={<Leaf size={18} color={Colors.primary} weight="fill" />}
-          iconBg={Colors.primaryLight}
+          icon={<Image source={require('@/assets/icon.png')} style={styles.settingIconImage} />}
+          iconBg="transparent"
           label="Dietary preferences"
           sublabel="Allergies, conditions, diet type"
           onPress={() => setShowDietaryModal(true)}
@@ -471,6 +471,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: Radius.full,
   },
+  profileBadgeIcon: { width: 14, height: 14, borderRadius: 4 },
   profileBadgeText: {
     fontFamily: Fonts.bold,
     fontSize: FontSizes.xs,
@@ -546,6 +547,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  settingIconImage: { width: 40, height: 40, borderRadius: Radius.md },
   settingContent: { flex: 1, gap: 2 },
   settingLabel: {
     fontFamily: Fonts.semibold,

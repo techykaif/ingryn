@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity,
-    StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator
+    StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as Linking from 'expo-linking'
@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '@/lib/supabase'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
-import { Lock, Eye, EyeSlash, Warning, CheckCircle, Leaf } from 'phosphor-react-native'
+import { Lock, Eye, EyeSlash, Warning, CheckCircle } from 'phosphor-react-native'
 
 type ScreenState = 'verifying' | 'ready' | 'submitting' | 'success' | 'invalid'
 
@@ -142,9 +142,7 @@ export default function ResetPasswordScreen() {
         >
             <StatusBar style="dark" />
             <View style={styles.content}>
-                <View style={styles.iconWrap}>
-                    <Leaf size={28} color={Colors.primary} weight="fill" />
-                </View>
+                <Image source={require('@/assets/icon.png')} style={styles.iconWrap} />
                 <Text style={styles.title}>Set a new password</Text>
                 <Text style={styles.subtitle}>Choose a strong password you haven't used before.</Text>
 
@@ -210,7 +208,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
     centered: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing['2xl'], gap: Spacing.md },
     content: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing['2xl'], gap: Spacing.lg },
-    iconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: Spacing.md },
+    iconWrap: { width: 56, height: 56, borderRadius: 16, alignSelf: 'center', marginBottom: Spacing.md },
     title: { fontFamily: Fonts.bold, fontSize: FontSizes['2xl'], color: Colors.textPrimary, textAlign: 'center' },
     subtitle: { fontFamily: Fonts.regular, fontSize: FontSizes.sm, color: Colors.textSecondary, textAlign: 'center', marginBottom: Spacing.lg },
     invalidTitle: { fontFamily: Fonts.bold, fontSize: FontSizes.xl, color: Colors.textPrimary, textAlign: 'center' },

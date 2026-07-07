@@ -1,12 +1,12 @@
 import {
-  View, Text, StyleSheet, TouchableOpacity, Platform
+  View, Text, StyleSheet, TouchableOpacity, Platform, Image
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
-import { Scan, ShieldCheck, Globe, ArrowRight, Leaf } from 'phosphor-react-native'
+import { Scan, ShieldCheck, Globe, ArrowRight } from 'phosphor-react-native'
 
 const FEATURES = [
   {
@@ -46,12 +46,11 @@ export default function WelcomeScreen() {
       <SafeAreaView style={styles.safe}>
         {/* ─── Hero ─── */}
         <View style={styles.hero}>
-          <LinearGradient
-            colors={[Colors.primary, Colors.primaryDark]}
-            style={styles.logoGradient}
-          >
-            <Leaf size={28} color="#fff" weight="fill" />
-          </LinearGradient>
+          <Image
+            source={require('@/assets/icon.png')}
+            style={styles.logo}
+            resizeMode="cover"
+          />
           <Text style={styles.brand}>INGRYN</Text>
           <Text style={styles.tagline}>Know what's inside.</Text>
           <Text style={styles.subtagline}>
@@ -168,12 +167,10 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     gap: Spacing.sm,
   },
-  logoGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+  logo: {
+    width: 76,
+    height: 76,
+    borderRadius: 22,
     marginBottom: Spacing.xs,
     ...Shadows.primary,
   },
