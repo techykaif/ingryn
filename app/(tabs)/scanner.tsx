@@ -165,11 +165,11 @@ function ManualScreen({
         <TouchableOpacity onPress={onBack} style={[styles.backBtn, Shadows.sm]}>
           <ArrowLeft size={22} color={Colors.textPrimary} weight="bold" />
         </TouchableOpacity>
-        <Text style={styles.manualTitle}>Type ingredients</Text>
+        <Text style={styles.manualTitle}>Review ingredients</Text>
         <View style={{ width: 40 }} />
       </View>
       <ScrollView style={styles.manualScroll} contentContainerStyle={styles.manualContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <Text style={styles.manualSubtitle}>Paste or type the full ingredients list from the label</Text>
+        <Text style={styles.manualSubtitle}>Please verify and edit the ingredients list before analyzing.</Text>
 
         {error ? (
           <View style={styles.errorBanner}>

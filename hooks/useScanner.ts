@@ -137,7 +137,10 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
         return
       }
 
-      await processText(text)
+      setManualText(text)
+      stopTipCycle()
+      setStep('manual')
+      setScanError(null)
     } catch (e: any) {
       stopTipCycle()
       setStep('camera')
