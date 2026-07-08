@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuthStore, useDietaryStore, DietaryPreferences } from '@/store'
+import { useAuthStore, useDietaryStore, DietaryPreferences, DEFAULT_PREFERENCES } from '@/store'
 
 export type { DietaryPreferences }
 
@@ -14,11 +14,22 @@ export function useDietaryPreferences() {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    if (user?.id && currentUserForPrefs !== user.id) {
-      currentUserForPrefs = user.id
-      fetchPreferences()
-    } else if (user?.id === currentUserForPrefs) {
-      setLoading(false)
+    if (user?.id) {
+      if (currentUserForPrefs !== user.id) {
+        currentUserForPrefs = user.id
+        fetchPreferences()
+      } else {
+        setLoading(false)
+      }
+    } else {
+      // Signed out — clear the cache marker and reset the shared store.
+      // Without this, whichever user signs in next on this device would
+      // inherit the previous user's allergies/conditions until they
+      // happened to overwrite them, both for scan flagging and in the
+      // Settings screen itself.
+      currentUserForPrefs = null
+      setPreferences(DEFAULT_PREFERENCES)
+      setLoading(true)
     }
   }, [user?.id])
 
@@ -30,13 +41,18 @@ export function useDietaryPreferences() {
         .eq('user_id', user?.id)
         .maybeSingle()
 
-      if (data) {
-        setPreferences({
-          conditions: data.conditions || [],
-          allergies: data.allergies || [],
-          diet_type: data.diet_type || 'none',
-        })
-      }
+      // Always set preferences, even when this user has no saved row yet —
+      // otherwise a signed-out-then-signed-in-as-someone-else session would
+      // keep showing the previous user's data here.
+      setPreferences(
+        data
+          ? {
+              conditions: data.conditions || [],
+              allergies: data.allergies || [],
+              diet_type: data.diet_type || 'none',
+            }
+          : DEFAULT_PREFERENCES
+      )
     } catch (e: any) {
       console.error('fetchPreferences error:', e)
       setErrorMsg(e.message || 'Could not load your dietary preferences.')
