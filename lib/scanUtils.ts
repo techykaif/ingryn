@@ -17,7 +17,13 @@ export const getScoreLabel = (score: number | null) => {
 export const formatDate = (dateStr: string, includeYear = false) => {
   const date = new Date(dateStr)
   const now = new Date()
-  const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+  
+  const dateObj = new Date(date)
+  dateObj.setHours(0, 0, 0, 0)
+  const nowObj = new Date(now)
+  nowObj.setHours(0, 0, 0, 0)
+  
+  const diff = Math.floor((nowObj.getTime() - dateObj.getTime()) / (1000 * 60 * 60 * 24))
   
   if (!includeYear) {
     if (diff <= 0) return 'Today'

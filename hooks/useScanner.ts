@@ -90,6 +90,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => {
       if (requestIdRef.current !== requestId) return
+      requestIdRef.current += 1
       stopTipCycle()
       clearProcessingTimeout()
       setStep(IS_WEB ? 'manual' : 'camera')
@@ -177,7 +178,7 @@ export function useScanner(userId: string, onSuccess: (scanId: string) => void) 
     setScanError(null)
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.85,
         allowsEditing: false,
       })

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { FunctionsHttpError } from '@supabase/supabase-js'
+import type { DietaryPreferences } from '@/store'
 
 export type IngredientAnalysis = {
   name: string
@@ -12,15 +13,11 @@ export type IngredientAnalysis = {
   personal_flag?: string | null
 }
 
-export type UserPreferences = {
-  conditions: string[]
-  allergies: string[]
-  diet_type: string
-}
+
 
 export async function analyzeIngredients(
   ingredientText: string,
-  preferences?: UserPreferences
+  preferences?: DietaryPreferences
 ): Promise<IngredientAnalysis[]> {
   const { data, error } = await supabase.functions.invoke('analyze-ingredients', {
     body: { ingredientText, preferences },

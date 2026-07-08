@@ -15,11 +15,10 @@ type ScreenState = 'verifying' | 'ready' | 'submitting' | 'success' | 'invalid'
 
 function parseTokensFromUrl(url: string | null): { access_token: string; refresh_token: string } | null {
     if (!url) return null
-    const raw = url.includes('#') ? url.split('#')[1] : url.split('?')[1]
-    if (!raw) return null
-    const params = new URLSearchParams(raw)
-    const access_token = params.get('access_token')
-    const refresh_token = params.get('refresh_token')
+    const parsed = Linking.parse(url.replace('#', '?'))
+    const queryParams = parsed.queryParams || {}
+    const access_token = queryParams.access_token as string | undefined
+    const refresh_token = queryParams.refresh_token as string | undefined
     if (!access_token || !refresh_token) return null
     return { access_token, refresh_token }
 }
@@ -35,23 +34,16 @@ export default function ResetPasswordScreen() {
 
     useEffect(() => {
         let cancelled = false
-
-        return () => {
-            cancelled = true
-            if (timeoutRef.current) clearTimeout(timeoutRef.current)
-        }
-    }, [])
-
-    useEffect(() => {
-        let cancelled = false
+        const handledUrls = new Set<string>()
 
         async function tryEstablishSession(url: string | null) {
             if (!url) return false
-            const raw = url.includes('#') ? url.split('#')[1] : url.split('?')[1]
-            if (!raw) return false
-            const params = new URLSearchParams(raw)
+            if (handledUrls.has(url)) return true
+            handledUrls.add(url)
+            const parsed = Linking.parse(url.replace('#', '?'))
+            const queryParams = parsed.queryParams || {}
             
-            const code = params.get('code')
+            const code = queryParams.code as string | undefined
             if (code) {
                 const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
                 if (cancelled) return true
@@ -92,6 +84,7 @@ export default function ResetPasswordScreen() {
         return () => {
             cancelled = true
             subscription.remove()
+            if (timeoutRef.current) clearTimeout(timeoutRef.current)
         }
     }, [])
 

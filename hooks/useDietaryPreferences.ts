@@ -4,6 +4,8 @@ import { useAuthStore, useDietaryStore, DietaryPreferences } from '@/store'
 
 export type { DietaryPreferences }
 
+let currentUserForPrefs: string | null = null
+
 export function useDietaryPreferences() {
   const { user } = useAuthStore()
   const { preferences, setPreferences } = useDietaryStore()
@@ -12,7 +14,12 @@ export function useDietaryPreferences() {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    if (user?.id) fetchPreferences()
+    if (user?.id && currentUserForPrefs !== user.id) {
+      currentUserForPrefs = user.id
+      fetchPreferences()
+    } else if (user?.id === currentUserForPrefs) {
+      setLoading(false)
+    }
   }, [user?.id])
 
   async function fetchPreferences() {
@@ -39,6 +46,10 @@ export function useDietaryPreferences() {
   }
 
   async function savePreferences(prefs: DietaryPreferences): Promise<boolean> {
+    if (!user?.id) {
+      setErrorMsg('You must be logged in to save preferences.')
+      return false
+    }
     setSaving(true)
     setErrorMsg('')
     try {

@@ -1,5 +1,5 @@
 import {
-  View, Text, StyleSheet, TouchableOpacity, Platform, Image
+  View, Text, StyleSheet, TouchableOpacity, Platform, Image, ScrollView
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -44,6 +44,7 @@ export default function WelcomeScreen() {
       <View style={styles.blob2} />
 
       <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between' }} showsVerticalScrollIndicator={false}>
         {/* ─── Hero ─── */}
         <View style={styles.hero}>
           <Image
@@ -128,6 +129,7 @@ export default function WelcomeScreen() {
             <Text style={styles.legalLink} onPress={() => router.push('/legal/privacy')}>Privacy Policy</Text>
           </Text>
         </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   )
@@ -159,7 +161,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     paddingHorizontal: Spacing['2xl'],
-    justifyContent: 'space-between',
     paddingTop: Platform.OS === 'android' ? Spacing.xl : 0,
     paddingBottom: Spacing.lg,
   },
@@ -275,7 +276,6 @@ const styles = StyleSheet.create({
   primaryBtnWrapper: {
     width: '100%',
     borderRadius: Radius.xl,
-    overflow: 'hidden',
     ...Shadows.primary,
   },
   primaryBtn: {
@@ -285,6 +285,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xl,
     paddingHorizontal: Spacing['2xl'],
     gap: Spacing.md,
+    borderRadius: Radius.xl,
   },
   primaryBtnText: {
     fontFamily: Fonts.bold,

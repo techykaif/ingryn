@@ -11,7 +11,7 @@ import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuthStore } from '@/store'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useScanner, IS_WEB } from '@/hooks/useScanner'
+import { useScanner } from '@/hooks/useScanner'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
   Image as ImageIcon, TextT, Lightning, LightningSlash,

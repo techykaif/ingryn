@@ -32,7 +32,6 @@ export default function HistoryScreen() {
   const { user } = useAuthStore()
   const insets = useSafeAreaInsets()
   const [scans, setScans] = useState<ScanItem[]>([])
-  const [filtered, setFiltered] = useState<ScanItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -51,7 +50,7 @@ export default function HistoryScreen() {
       if (!user?.id) return
       let query = supabase
         .from('scans')
-        .select('id, label, safety_score, created_at, ingredient_count')
+        .select('id, label, safety_score, created_at, ingredient_ids')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
         .range(0, pageSize - 1)
@@ -63,8 +62,8 @@ export default function HistoryScreen() {
       const { data, error } = await query
 
       if (error) throw error
-      setScans(data || [])
-      setFiltered(data || [])
+      const mapped = (data || []).map((s: any) => ({ ...s, ingredient_count: Array.isArray(s.ingredient_ids) ? s.ingredient_ids.length : 0 }))
+      setScans(mapped)
       setPage(0)
       setHasMore((data?.length ?? 0) === pageSize)
     } catch (e: any) {
@@ -84,7 +83,7 @@ export default function HistoryScreen() {
       
       let query = supabase
         .from('scans')
-        .select('id, label, safety_score, created_at, ingredient_count')
+        .select('id, label, safety_score, created_at, ingredient_ids')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
         .range(from, to)
@@ -96,10 +95,9 @@ export default function HistoryScreen() {
       const { data, error } = await query
 
       if (error) throw error
-      const newRows = data || []
+      const newRows = (data || []).map((s: any) => ({ ...s, ingredient_count: Array.isArray(s.ingredient_ids) ? s.ingredient_ids.length : 0 }))
       const combined = [...scans, ...newRows]
       setScans(combined)
-      setFiltered(combined)
       setPage(nextPage)
       setHasMore(newRows.length === pageSize)
     } catch (e: any) {
@@ -115,10 +113,6 @@ export default function HistoryScreen() {
     }, 400)
     return () => clearTimeout(handler)
   }, [searchQuery])
-
-  useEffect(() => {
-    if (user?.id) fetchScans()
-  }, [debouncedSearch, fetchScans, user?.id])
 
   useFocusEffect(useCallback(() => { fetchScans() }, [fetchScans]))
 
@@ -147,7 +141,6 @@ export default function HistoryScreen() {
       if (error) throw error
       const updated = scans.filter(s => s.id !== scanId)
       setScans(updated)
-      setFiltered(updated)
       setErrorMessage('')
     } catch (e: any) {
       setErrorMessage(e.message || 'Unable to delete this scan right now.')
@@ -156,7 +149,7 @@ export default function HistoryScreen() {
     }
   }
 
-  const renderItem = ({ item }: { item: ScanItem }) => {
+  const renderItem = useCallback(({ item }: { item: ScanItem }) => {
     const color = getScoreColor(item.safety_score)
     const label = getScoreLabel(item.safety_score)
     const isHarmful = label === 'Harmful'
@@ -208,7 +201,7 @@ export default function HistoryScreen() {
         </View>
       </TouchableOpacity>
     )
-  }
+  }, [router, deleting])
 
   return (
     <View style={styles.container}>
@@ -252,7 +245,7 @@ export default function HistoryScreen() {
         <View style={styles.centered}>
           <ActivityIndicator color={Colors.primary} size="large" />
         </View>
-      ) : filtered.length === 0 ? (
+      ) : scans.length === 0 ? (
         <View style={styles.centered}>
           {searchQuery ? (
             <>
@@ -280,7 +273,7 @@ export default function HistoryScreen() {
         </View>
       ) : (
         <FlatList
-          data={filtered}
+          data={scans}
           keyExtractor={item => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}

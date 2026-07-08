@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, TextInput, ActivityIndicator,
@@ -25,6 +25,11 @@ export default function SettingsScreen() {
   const { user, setUser } = useAuthStore()
   const insets = useSafeAreaInsets()
 
+  const mounted = React.useRef(true)
+  React.useEffect(() => {
+    return () => { mounted.current = false }
+  }, [])
+
   const [showDietaryModal, setShowDietaryModal] = useState(false)
 
   // Edit name
@@ -48,6 +53,7 @@ export default function SettingsScreen() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [signOutError, setSignOutError] = useState('')
 
   const displayName = user?.user_metadata?.full_name || user?.email || 'User'
   const email = user?.email || ''
@@ -61,17 +67,22 @@ export default function SettingsScreen() {
       return
     }
     setNameSaving(true)
-    const { data, error } = await supabase.auth.updateUser({
-      data: { full_name: nameValue.trim() },
-    })
-    setNameSaving(false)
-    if (error) {
-      setNameError(error.message)
-    } else {
-      if (data?.user) setUser(data.user)
-      setNameSuccess(true)
-      setEditingName(false)
-      setTimeout(() => setNameSuccess(false), 3000)
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: { full_name: nameValue.trim() },
+      })
+      if (error) {
+        setNameError(error.message)
+      } else {
+        if (data?.user) setUser(data.user)
+        setNameSuccess(true)
+        setEditingName(false)
+        setTimeout(() => { if (mounted.current) setNameSuccess(false) }, 3000)
+      }
+    } catch (e: any) {
+      setNameError(e.message || 'Failed to update name.')
+    } finally {
+      setNameSaving(false)
     }
   }
 
@@ -82,15 +93,20 @@ export default function SettingsScreen() {
       return
     }
     setPasswordSaving(true)
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    setPasswordSaving(false)
-    if (error) {
-      setPasswordError(error.message)
-    } else {
-      setPasswordSuccess(true)
-      setNewPassword('')
-      setEditingPassword(false)
-      setTimeout(() => setPasswordSuccess(false), 3000)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) {
+        setPasswordError(error.message)
+      } else {
+        setPasswordSuccess(true)
+        setNewPassword('')
+        setEditingPassword(false)
+        setTimeout(() => { if (mounted.current) setPasswordSuccess(false) }, 3000)
+      }
+    } catch (e: any) {
+      setPasswordError(e.message || 'Failed to change password.')
+    } finally {
+      setPasswordSaving(false)
     }
   }
 
@@ -101,7 +117,7 @@ export default function SettingsScreen() {
       setUser(null)
       router.replace('/(auth)/welcome')
     } catch (e: any) {
-      setDeleteError(e.message || 'Could not sign out. Please try again.')
+      setSignOutError(e.message || 'Could not sign out. Please try again.')
     }
   }
 
@@ -177,6 +193,12 @@ export default function SettingsScreen() {
           <View style={styles.deleteErrorBanner}>
             <Trash size={16} color={Colors.danger} weight="fill" />
             <Text style={styles.deleteErrorText}>{deleteError}</Text>
+          </View>
+        ) : null}
+        {signOutError ? (
+          <View style={styles.deleteErrorBanner}>
+            <SignOut size={16} color={Colors.danger} weight="fill" />
+            <Text style={styles.deleteErrorText}>{signOutError}</Text>
           </View>
         ) : null}
 

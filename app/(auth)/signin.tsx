@@ -39,6 +39,12 @@ function getAuthErrorMessage(error: { message: string; status?: number }): strin
 export default function SignInScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  
+  const mounted = useRef(true)
+  useEffect(() => {
+    return () => { mounted.current = false }
+  }, [])
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -94,10 +100,11 @@ export default function SignInScreen() {
     if (isLockedOut()) return
 
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-    setLoading(false)
-
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (error) throw error
+      attempts.current = 0; lockoutCount.current = 0; lockoutUntil.current = null
+    } catch (error: any) {
       attempts.current += 1
       if (attempts.current >= MAX_ATTEMPTS) {
         lockoutCount.current += 1
@@ -111,8 +118,8 @@ export default function SignInScreen() {
       const remaining = MAX_ATTEMPTS - attempts.current
       const base = getAuthErrorMessage(error)
       setErrorMsg(remaining <= 2 ? `${base} ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.` : base)
-    } else {
-      attempts.current = 0; lockoutCount.current = 0; lockoutUntil.current = null
+    } finally {
+      if (mounted.current) setLoading(false)
     }
   }
 
@@ -137,12 +144,17 @@ export default function SignInScreen() {
     const emailCheck = validateEmail(resetEmail)
     if (!emailCheck.valid) { setResetError(emailCheck.reason); return }
     setResetLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
-      redirectTo: 'ingryn://reset-password',
-    })
-    setResetLoading(false)
-    if (error) setResetError(getAuthErrorMessage(error))
-    else setResetSent(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+        redirectTo: 'ingryn://reset-password',
+      })
+      if (error) throw error
+      setResetSent(true)
+    } catch (error: any) {
+      setResetError(getAuthErrorMessage(error))
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   // ─── Forgot password mode ─────────────────────────────────────────
@@ -392,15 +404,14 @@ const styles = StyleSheet.create({
   errorBannerText: { flex: 1, fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.danger, lineHeight: 18 },
   lockoutBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.warningLight, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.lg },
   lockoutText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.caution },
-  primaryBtnWrapper: { borderRadius: Radius.xl, overflow: 'hidden', marginBottom: Spacing.xl },
+  primaryBtnWrapper: { borderRadius: Radius.xl, marginBottom: Spacing.xl },
   btnDisabled: { opacity: 0.5 },
-  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: Spacing.xl },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: Spacing.xl, borderRadius: Radius.xl },
   primaryBtnText: { fontFamily: Fonts.bold, fontSize: FontSizes.lg, color: '#fff' },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: Spacing.xl },
   dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
   dividerText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.textTertiary, paddingHorizontal: Spacing.md },
   googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, paddingVertical: Spacing.lg, gap: Spacing.sm },
-  googleIcon: { fontFamily: Fonts.extrabold, fontSize: FontSizes.lg, color: '#4285F4' },
   googleText: { fontFamily: Fonts.semibold, fontSize: FontSizes.base, color: Colors.textPrimary },
   linkBtn: { padding: Spacing.md, alignItems: 'center', marginTop: Spacing.md },
   linkBtnText: { fontFamily: Fonts.medium, fontSize: FontSizes.sm, color: Colors.textSecondary },

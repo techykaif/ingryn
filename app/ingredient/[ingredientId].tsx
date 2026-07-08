@@ -23,7 +23,6 @@ type Ingredient = {
   safety_level: 'safe' | 'caution' | 'harmful' | 'unknown'
   health_concerns: string[]
   country_status: Record<string, string>
-  last_updated: string
 }
 
 const COUNTRIES: Record<string, { flag: string; label: string }> = {

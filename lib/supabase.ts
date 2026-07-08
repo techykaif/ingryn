@@ -25,7 +25,15 @@ const ExpoSecureStoreAdapter = {
   },
   setItem: async (key: string, value: string) => {
     try {
+      const prevMeta = await SecureStore.getItemAsync(key + '_meta').catch(() => null)
+      const prevChunks = prevMeta ? parseInt(prevMeta, 10) : 0
+
       if (value.length <= CHUNK_SIZE) {
+        if (prevChunks > 0) {
+          for (let i = 0; i < prevChunks; i++) {
+            await SecureStore.deleteItemAsync(`${key}_chunk_${i}`).catch(() => {})
+          }
+        }
         await SecureStore.deleteItemAsync(key + '_meta').catch(() => {})
         await SecureStore.setItemAsync(key, value)
         return
@@ -38,6 +46,13 @@ const ExpoSecureStoreAdapter = {
         const chunk = value.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
         await SecureStore.setItemAsync(`${key}_chunk_${i}`, chunk)
       }
+
+      if (prevChunks > chunksCount) {
+        for (let i = chunksCount; i < prevChunks; i++) {
+          await SecureStore.deleteItemAsync(`${key}_chunk_${i}`).catch(() => {})
+        }
+      }
+
       await SecureStore.deleteItemAsync(key).catch(() => {})
     } catch (e) {
       console.error('SecureStore setItem error', e)

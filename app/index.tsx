@@ -7,7 +7,7 @@ import { Colors } from '@/constants/theme'
 export default function Index() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator color="#00E5A0" size="large" />
+      <ActivityIndicator color={Colors.primary} size="large" />
     </View>
   )
 }

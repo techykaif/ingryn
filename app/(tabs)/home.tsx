@@ -10,8 +10,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import {
-  Scan as ScanIcon, Clock, ChartBar,
-  ArrowRight, Warning, Bell, Plus, List, SealCheck, ClockCounterClockwise,
+  Scan as ScanIcon, ChartBar,
+  ArrowRight, Warning, ClockCounterClockwise,
   CheckCircle, Sparkle, ShieldWarning, Question
 } from 'phosphor-react-native'
 import { getScoreColor, getScoreLabel, formatDate } from '@/lib/scanUtils'
@@ -45,10 +45,15 @@ export default function HomeScreen() {
       const fullName = user?.user_metadata?.full_name || user?.email || ''
       setFirstName(fullName.split(' ')[0] || 'there')
 
-      const [{ data, error }, { count }, { count: harmful }, { count: safe }] = await Promise.all([
+      const [
+        { data, error },
+        { count, error: err1 },
+        { count: harmful, error: err2 },
+        { count: safe, error: err3 }
+      ] = await Promise.all([
         supabase
           .from('scans')
-          .select('id, label, safety_score, created_at, ingredient_count')
+          .select('id, label, safety_score, created_at, ingredient_ids')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(5),
@@ -69,13 +74,16 @@ export default function HomeScreen() {
       ])
 
       if (error) throw error
+      if (err1) throw err1
+      if (err2) throw err2
+      if (err3) throw err3
 
       const mapped = (data || []).map((s: any) => ({
         id: s.id,
         label: s.label,
         safety_score: s.safety_score,
         created_at: s.created_at,
-        ingredient_count: s.ingredient_count || 0,
+        ingredient_count: Array.isArray(s.ingredient_ids) ? s.ingredient_ids.length : 0,
       }))
 
       setScans(mapped)

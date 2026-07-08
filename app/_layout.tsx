@@ -29,7 +29,8 @@ import {
 SplashScreen.preventAutoHideAsync().catch(() => {})
 
 function AuthGate({ children }: { children: ReactNode }) {
-  const { user, setUser } = useAuthStore()
+  const user = useAuthStore(s => s.user)
+  const setUser = useAuthStore(s => s.setUser)
   const [authLoading, setAuthLoading] = useState(true)
   const router = useRouter()
   const segments = useSegments()
@@ -119,7 +120,7 @@ function AuthGate({ children }: { children: ReactNode }) {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     PlusJakartaSans_200ExtraLight,
     PlusJakartaSans_300Light,
     PlusJakartaSans_400Regular,
@@ -132,7 +133,13 @@ export default function RootLayout() {
     PlusJakartaSans_700Bold_Italic,
   })
 
-  if (!fontsLoaded) {
+  useEffect(() => {
+    if (fontError) {
+      SplashScreen.hideAsync().catch(() => {})
+    }
+  }, [fontError])
+
+  if (!fontsLoaded && !fontError) {
     return (
       <View style={{
         flex: 1,

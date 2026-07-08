@@ -1,11 +1,11 @@
 import { supabase } from '@/lib/supabase'
-import { analyzeIngredients, IngredientAnalysis, UserPreferences } from '@/lib/gemini'
-import { useScanProgressStore } from '@/store'
+import { analyzeIngredients, type IngredientAnalysis } from '@/lib/gemini'
+import { useScanProgressStore, type DietaryPreferences } from '@/store'
 
 export async function saveAnalysis(
   text: string,
   userId: string,
-  preferences?: UserPreferences
+  preferences?: DietaryPreferences
 ): Promise<{ scanId: string; error?: string }> {
   try {
     const ingredientNames = parseIngredientNames(text)
@@ -25,7 +25,7 @@ export async function saveAnalysis(
     // Step 3: Process unknown ingredients progressively in background
     if (unknownNames.length > 0) {
       useScanProgressStore.getState().setActiveScan(scanId, true)
-      processUnknownIngredientsInBackground(scanId, unknownNames, cachedIds, preferences)
+      processUnknownIngredientsInBackground(scanId, unknownNames, cachedIds, preferences).catch(console.error)
     }
 
     return { scanId }
@@ -61,7 +61,7 @@ async function processUnknownIngredientsInBackground(
   scanId: string,
   unknownNames: string[],
   currentIds: string[],
-  preferences?: UserPreferences
+  preferences?: DietaryPreferences
 ) {
   try {
     const chunkSize = 5 // Process 5 ingredients at a time
