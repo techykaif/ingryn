@@ -12,6 +12,7 @@ import { validateEmail } from '@/lib/emailValidator'
 import { signInWithGoogle } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
+import {
   ArrowLeft, EnvelopeSimple, Lock, Eye, EyeSlash,
   Warning, ArrowRight, UserCircle, CheckCircle, GoogleLogo
 } from 'phosphor-react-native'

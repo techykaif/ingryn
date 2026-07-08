@@ -7,12 +7,6 @@
     "icon": "./assets/icon.png",
     "scheme": "ingryn",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F8FAFC"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ingryn.app",
@@ -28,7 +22,6 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.ingryn.app",
-      "minSdkVersion": 26,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -56,7 +49,14 @@
           "photosPermission": "INGRYN needs photo library access to scan ingredient labels from images."
         }
       ],
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F8FAFC"
+        }
+      ],
       "@react-native-google-signin/google-signin",
       "expo-secure-store"
     ],

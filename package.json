@@ -45,5 +45,22 @@
     "ios": "expo run:ios",
     "web": "expo start --web"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "install": {
+      "exclude": [
+        "expo",
+        "expo-constants",
+        "expo-image-picker",
+        "expo-linking",
+        "expo-router",
+        "expo-splash-screen"
+      ]
+    },
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["@react-native-ml-kit/text-recognition"]
+      }
+    }
+  }
 }
