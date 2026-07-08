@@ -17,6 +17,8 @@ type UserPreferences = {
   diet_type: string
 }
 
+const COUNTRY_STATUS_VALUES = ["permitted", "permitted_with_limits", "banned", "under_review", "no_data"]
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
@@ -149,16 +151,58 @@ async function callGemini(prompt: string, retryCount = 0): Promise<unknown[]> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 8192,
+          // Structured output: Gemini is constrained to emit exactly this
+          // shape, so no output tokens are spent on markdown/backticks and
+          // we get a reliability guarantee instead of relying on the regex
+          // fallback below. Cuts both latency and parse-failure risk.
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                aliases: { type: "ARRAY", items: { type: "STRING" } },
+                category: { type: "STRING" },
+                description: { type: "STRING" },
+                safety_level: { type: "STRING", enum: ["safe", "caution", "harmful", "unknown"] },
+                health_concerns: { type: "ARRAY", items: { type: "STRING" } },
+                country_status: {
+                  type: "OBJECT",
+                  properties: {
+                    US: { type: "STRING", enum: COUNTRY_STATUS_VALUES },
+                    EU: { type: "STRING", enum: COUNTRY_STATUS_VALUES },
+                    UK: { type: "STRING", enum: COUNTRY_STATUS_VALUES },
+                    India: { type: "STRING", enum: COUNTRY_STATUS_VALUES },
+                    Australia: { type: "STRING", enum: COUNTRY_STATUS_VALUES },
+                    Canada: { type: "STRING", enum: COUNTRY_STATUS_VALUES },
+                    Japan: { type: "STRING", enum: COUNTRY_STATUS_VALUES },
+                    China: { type: "STRING", enum: COUNTRY_STATUS_VALUES },
+                  },
+                  required: ["US", "EU", "UK", "India", "Australia", "Canada", "Japan", "China"],
+                },
+                personal_flag: { type: "STRING", nullable: true },
+              },
+              required: ["name", "aliases", "category", "description", "safety_level", "health_concerns", "country_status"],
+            },
+          },
+        },
       }),
     })
   } catch (fetchError) {
     throw new Error(`Network error reaching Gemini: ${(fetchError as Error).message}`)
   }
 
-  // Rate limit — retry with backoff, same as before
-  if (response.status === 429 && retryCount < 3) {
-    const delay = (retryCount + 1) * 8000
+  // Rate limit — retry with backoff. This only delays a background chunk now
+  // (the user is already on the results screen with a "still analyzing"
+  // indicator, not blocked on a foreground timeout), but shorter retries
+  // still mean ingredients show up faster and less of the free-tier quota
+  // sits idle waiting.
+  if (response.status === 429 && retryCount < 2) {
+    const delay = (retryCount + 1) * 1500
     await new Promise((resolve) => setTimeout(resolve, delay))
     return callGemini(prompt, retryCount + 1)
   }
@@ -186,17 +230,12 @@ async function callGemini(prompt: string, retryCount = 0): Promise<unknown[]> {
   const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text
   if (!textContent) throw new Error("No response from Gemini")
 
-  let clean = textContent
-    .replace(/```json\s*/gi, "")
-    .replace(/```\s*/gi, "")
-    .replace(/^\s*[\r\n]/gm, "")
-    .trim()
-
-  const arrayMatch = clean.match(/\[[\s\S]*\]/)
-  if (arrayMatch) clean = arrayMatch[0]
-
+  // With responseMimeType: "application/json" + responseSchema, Gemini is
+  // contractually constrained to return exactly this shape — no markdown
+  // fences, no preamble. A direct parse is the primary path; the bracket
+  // extraction is only a defensive fallback in case of a transient API quirk.
   try {
-    const result = JSON.parse(clean)
+    const result = JSON.parse(textContent)
     if (!Array.isArray(result)) throw new Error("Gemini returned unexpected format")
     return result
   } catch {

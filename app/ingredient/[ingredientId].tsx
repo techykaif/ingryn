@@ -82,20 +82,25 @@ export default function IngredientDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
 
-  useEffect(() => { fetchIngredient() }, [ingredientId])
+  useEffect(() => {
+    let cancelled = false
 
-  async function fetchIngredient() {
-    try {
-      const { data, error } = await supabase
-        .from('ingredients').select('id, name, aliases, category, description, safety_level, health_concerns, country_status').eq('id', ingredientId).single()
-      if (error) throw error
-      setIngredient(data)
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Could not load ingredient details.')
-    } finally {
-      setLoading(false)
+    async function fetchIngredient() {
+      try {
+        const { data, error } = await supabase
+          .from('ingredients').select('id, name, aliases, category, description, safety_level, health_concerns, country_status').eq('id', ingredientId).single()
+        if (error) throw error
+        if (!cancelled) setIngredient(data)
+      } catch (e: any) {
+        if (!cancelled) setErrorMsg(e.message || 'Could not load ingredient details.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-  }
+
+    fetchIngredient()
+    return () => { cancelled = true }
+  }, [ingredientId])
 
   if (loading) {
     return (

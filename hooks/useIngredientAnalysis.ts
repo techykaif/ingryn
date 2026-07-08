@@ -101,10 +101,12 @@ async function checkCache(names: string[]): Promise<{
   cachedIds: string[]
   unknownNames: string[]
 }> {
-  const { data: existing } = await supabase
+  const { data: existing, error } = await supabase
     .from('ingredients')
     .select('id, name')
     .in('name', names)
+
+  if (error) throw error
 
   const cachedIds: string[] = []
   const cachedNames = new Set<string>()
@@ -124,10 +126,11 @@ async function fetchIngredientsByIds(
   ids: string[]
 ): Promise<{ safety_level: string }[]> {
   if (ids.length === 0) return []
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ingredients')
     .select('safety_level')
     .in('id', ids)
+  if (error) throw error
   return (data || []) as { safety_level: string }[]
 }
 
