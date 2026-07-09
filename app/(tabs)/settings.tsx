@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
+import { signOutGoogle, revokeGoogleAccess } from '@/lib/auth'
 import { useAuthStore } from '@/store'
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '@/constants/theme'
 import { DietaryPreferencesModal } from '@/components/DietaryPreferencesModal'
@@ -112,6 +113,7 @@ export default function SettingsScreen() {
 
   async function handleSignOut() {
     try {
+      await signOutGoogle()
       const { error } = await supabase.auth.signOut()
       if (error) throw error
       setUser(null)
@@ -134,6 +136,7 @@ export default function SettingsScreen() {
         target_user_id: user?.id,
       })
       if (error) throw error
+      await revokeGoogleAccess()
       await supabase.auth.signOut()
       setUser(null)
       router.replace('/(auth)/welcome')

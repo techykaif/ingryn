@@ -9,9 +9,12 @@
     "@react-native-ml-kit/text-recognition": "^2.0.0",
     "@supabase/supabase-js": "^2.107.0",
     "expo": "~56.0.9",
+    "expo-application": "~56.0.3",
     "expo-blur": "~56.0.3",
     "expo-camera": "~56.0.7",
     "expo-constants": "~56.0.17",
+    "expo-crypto": "~56.0.4",
+    "expo-device": "~56.0.4",
     "expo-font": "^56.0.7",
     "expo-haptics": "~56.0.3",
     "expo-image-picker": "~56.0.16",
@@ -59,7 +62,9 @@
     },
     "doctor": {
       "reactNativeDirectoryCheck": {
-        "exclude": ["@react-native-ml-kit/text-recognition"]
+        "exclude": [
+          "@react-native-ml-kit/text-recognition"
+        ]
       }
     }
   }

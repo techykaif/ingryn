@@ -55,6 +55,11 @@ function AuthGate({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (mounted) setUser(session?.user ?? null)
+      if (_event === 'SIGNED_IN' && session?.user) {
+        import('@/lib/deviceSignature').then(({ trackDeviceSession }) => {
+          trackDeviceSession(session.user.id)
+        })
+      }
     })
 
     return () => {

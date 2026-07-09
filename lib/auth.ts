@@ -25,6 +25,11 @@ if (Platform.OS !== 'web') {
 export async function signInWithGoogle() {
   try {
     await GoogleSignin.hasPlayServices()
+    
+    // Defensive sign-out to ensure the account picker shows every time,
+    // solving the issue of being unable to select a different account after logout.
+    await signOutGoogle()
+    
     const userInfo = await GoogleSignin.signIn()
     
     if (!userInfo.data?.idToken) {
@@ -43,5 +48,30 @@ export async function signInWithGoogle() {
       return { success: false, error: 'canceled' }
     }
     throw e
+  }
+}
+
+export async function signOutGoogle() {
+  if (Platform.OS === 'web') return
+  try {
+    const hasPrevious = GoogleSignin.hasPreviousSignIn()
+    if (hasPrevious) {
+      await GoogleSignin.signOut()
+    }
+  } catch (error) {
+    console.error('Google Sign-In signOut error:', error)
+  }
+}
+
+export async function revokeGoogleAccess() {
+  if (Platform.OS === 'web') return
+  try {
+    const hasPrevious = GoogleSignin.hasPreviousSignIn()
+    if (hasPrevious) {
+      await GoogleSignin.revokeAccess()
+      await GoogleSignin.signOut()
+    }
+  } catch (error) {
+    console.error('Google Sign-In revokeAccess error:', error)
   }
 }
